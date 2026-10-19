@@ -1,0 +1,14 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.rookiesjeans.rookiesjeans",
+      "sha256_cert_fingerprints": [
+        "12:77:9D:C2:E7:E2:65:96:2B:16:BB:5F:67:04:DB:C2:FC:96:F3:67:B2:CA:9E:DF:ED:39:A6:73:62:16:6E:F8",
+        "D1:DE:13:D9:D2:F2:81:65:3A:46:F9:34:D0:A3:6E:45:2E:2F:60:7B:C0:81:83:91:BA:1F:11:89:27:61:D1:C6",
+        "D2:F6:88:7F:85:B7:87:90:87:E3:A6:9B:EF:5C:79:F5:92:CE:18:05:34:80:A8:B9:0A:17:6F:3B:6D:9F:90:A4"
+      ]
+    }
+  }
+]

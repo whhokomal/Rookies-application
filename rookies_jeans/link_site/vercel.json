@@ -1,0 +1,14 @@
+{
+  "framework": null,
+  "outputDirectory": "public",
+  "headers": [
+    {
+      "source": "/.well-known/(.*)",
+      "headers": [{ "key": "Content-Type", "value": "application/json" }]
+    }
+  ],
+  "redirects": [
+    { "source": "/products/:handle", "destination": "https://rookiesjeans.com/products/:handle", "permanent": false },
+    { "source": "/", "destination": "https://rookiesjeans.com", "permanent": false }
+  ]
+}

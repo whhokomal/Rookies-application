@@ -37,6 +37,18 @@
                 <data android:scheme="https" android:host="rookiesjeans.com"/>
                 <data android:scheme="https" android:host="www.rookiesjeans.com"/>
             </intent-filter>
+            <!-- Share links use links.rookiesjeans.com (link_site/ on Vercel),
+                 because Shopify's assetlinks.json for rookiesjeans.com lists
+                 an old package we can't edit. Kept in its own filter so it
+                 still verifies on Android 11 and below, where one failing
+                 host in a filter fails the whole filter. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="links.rookiesjeans.com"
+                      android:pathPrefix="/products/"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
