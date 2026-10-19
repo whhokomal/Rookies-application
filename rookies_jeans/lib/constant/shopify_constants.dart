@@ -39,10 +39,6 @@ class ShopifyConstants {
   static const String reviewPhone = '+916123450987';
 
   static const String storeUrl      ='https://rookiesjeans.com';
-  /// Base for shared product links. Served by link_site/ on Vercel, which
-  /// hosts the app-link verification files and redirects to [storeUrl]
-  /// when the app isn't installed.
-  static const String shareLinkUrl  = 'https://rookies-links.vercel.app';
   static const String shiprocketUrl  = 'https://rookiesjeans.shiprocket.co/';
 
   static const String fontHeading    = 'Anton';

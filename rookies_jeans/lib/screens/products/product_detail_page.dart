@@ -392,7 +392,7 @@ debugPrint('==========================================');
   Future<void> _shareProduct() async {
     final p = _product;
     if (p == null) return;
-    final link = '${ShopifyConstants.shareLinkUrl}/products/${p.handle}';
+    final link = '${ShopifyConstants.storeUrl}/products/${p.handle}';
     // iPad shows the share sheet as a popover and needs an anchor rect, or
     // sharing fails there. Ignored on iPhone and Android.
     final box = context.findRenderObject() as RenderBox?;
