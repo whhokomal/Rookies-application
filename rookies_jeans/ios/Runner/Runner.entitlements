@@ -12,7 +12,7 @@
 		<string>applinks:rookiesjeans.com</string>
 		<string>applinks:www.rookiesjeans.com</string>
 		<!-- Share links domain (link_site/ on Vercel); see AndroidManifest.xml. -->
-		<string>applinks:links.rookiesjeans.com</string>
+		<string>applinks:rookies-links.vercel.app</string>
 	</array>
 </dict>
 </plist>

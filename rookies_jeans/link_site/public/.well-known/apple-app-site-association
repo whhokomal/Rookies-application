@@ -2,7 +2,7 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["APPLE_TEAM_ID.com.rookiesjeans.rookiesjeans"],
+        "appIDs": ["6P6NW373DC.com.rookiesjeans.rookiesjeans"],
         "components": [{ "/": "/products/*" }]
       }
     ]

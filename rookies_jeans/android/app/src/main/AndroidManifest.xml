@@ -37,7 +37,7 @@
                 <data android:scheme="https" android:host="rookiesjeans.com"/>
                 <data android:scheme="https" android:host="www.rookiesjeans.com"/>
             </intent-filter>
-            <!-- Share links use links.rookiesjeans.com (link_site/ on Vercel),
+            <!-- Share links use rookies-links.vercel.app (link_site/ on Vercel),
                  because Shopify's assetlinks.json for rookiesjeans.com lists
                  an old package we can't edit. Kept in its own filter so it
                  still verifies on Android 11 and below, where one failing
@@ -46,7 +46,7 @@
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="links.rookiesjeans.com"
+                <data android:scheme="https" android:host="rookies-links.vercel.app"
                       android:pathPrefix="/products/"/>
             </intent-filter>
         </activity>
