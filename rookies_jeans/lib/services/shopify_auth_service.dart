@@ -518,6 +518,93 @@ class ShopifyAuthService {
     }
   }
  
+  /// Updates the signed-in customer's name and phone number. An empty
+  /// [phone] removes it from the account. Returns the updated customer on
+  /// success, otherwise a message to show.
+  Future<ShopifyAuthResult> updateProfile({
+    required String firstName,
+    required String lastName,
+    required String phone,
+  }) async {
+    final token = await getSavedCustomerToken();
+    if (token == null || token.isEmpty) {
+      return ShopifyAuthResult(
+        success: false,
+        message: 'Your session has expired. Please sign in again.',
+      );
+    }
+
+    const String mutation = r'''
+      mutation customerUpdate($token: String!, $customer: CustomerUpdateInput!) {
+        customerUpdate(customerAccessToken: $token, customer: $customer) {
+          customer { id firstName lastName email phone acceptsMarketing }
+          customerAccessToken { accessToken expiresAt }
+          customerUserErrors { field message code }
+        }
+      }
+    ''';
+
+    try {
+      final res = await ShopifyGraphQL.post(
+        mutation,
+        variables: {
+          'token': token,
+          'customer': {
+            'firstName': firstName.trim(),
+            'lastName': lastName.trim(),
+            'phone': phone.trim().isEmpty ? null : _toE164(phone.trim()),
+          },
+        },
+      );
+      _log('AUTH UPDATE PROFILE STATUS -> ${res.statusCode}');
+
+      if (!res.isOk || res.hasErrors) {
+        _log('AUTH UPDATE PROFILE ERROR -> ${res.errors}');
+        return ShopifyAuthResult(success: false, message: kFriendlyNetworkError);
+      }
+
+      final data = res.data?['customerUpdate'];
+      final List errors = data?['customerUserErrors'] ?? [];
+      if (errors.isNotEmpty) {
+        final first = errors.first as Map<String, dynamic>;
+        final code = first['code']?.toString();
+        final field = (first['field'] as List?)?.join('.') ?? '';
+        _log('AUTH UPDATE PROFILE USER ERRORS -> $errors');
+        String message;
+        if (code == 'TAKEN' && field.contains('phone')) {
+          message = 'This phone number is already used by another account.';
+        } else if (field.contains('phone')) {
+          message = 'Enter a valid phone number (e.g. 9876543210).';
+        } else {
+          message = first['message']?.toString() ?? 'Could not update your profile.';
+        }
+        return ShopifyAuthResult(success: false, message: message);
+      }
+
+      // Shopify may issue a new token after an update; keep the newest.
+      final newToken = data?['customerAccessToken'];
+      if (newToken?['accessToken'] != null) {
+        await _storage.write(
+            key: _customerTokenKey, value: newToken['accessToken'] as String);
+        await _storage.write(
+            key: _customerTokenExpiryKey,
+            value: newToken['expiresAt'] as String? ?? '');
+      }
+
+      final customerJson = data?['customer'];
+      return ShopifyAuthResult(
+        success: true,
+        message: 'Profile updated',
+        customer: customerJson == null
+            ? null
+            : ShopifyCustomer.fromJson(customerJson as Map<String, dynamic>),
+      );
+    } catch (e) {
+      _log('AUTH UPDATE PROFILE EXCEPTION -> $e');
+      return ShopifyAuthResult(success: false, message: kFriendlyNetworkError);
+    }
+  }
+
   /// Normalizes a phone number into E.164 format for Shopify.
   /// Defaults to India (+91) for 10-digit numbers — change if needed.
   String _toE164(String phone) {

@@ -14,11 +14,13 @@ class AuthService extends ChangeNotifier {
   String _firstName = '';
   String _lastName  = '';
   String _email     = '';
+  String _phone     = '';
 
   bool   get isLoggedIn => _isLoggedIn;
   String get firstName  => _firstName;
   String get lastName   => _lastName;
   String get email      => _email;
+  String get phone      => _phone;
 
   String get initials {
     final f = _firstName.isNotEmpty ? _firstName[0].toUpperCase() : '';
@@ -59,6 +61,30 @@ class AuthService extends ChangeNotifier {
     _firstName = customer.firstName ?? '';
     _lastName  = customer.lastName  ?? '';
     _email     = customer.email     ?? '';
+    _phone     = customer.phone     ?? '';
+  }
+
+  /// Saves a new name and phone number to the Shopify account. Returns null
+  /// on success, otherwise a message to show the customer.
+  Future<String?> updateProfile({
+    required String firstName,
+    required String lastName,
+    required String phone,
+  }) async {
+    final result = await ShopifyAuthService.instance.updateProfile(
+      firstName: firstName,
+      lastName: lastName,
+      phone: phone,
+    );
+    if (!result.success) return result.message ?? 'Could not update your profile.';
+    if (result.customer != null) {
+      _setCustomer(result.customer!);
+    } else {
+      _firstName = firstName.trim();
+      _lastName  = lastName.trim();
+    }
+    notifyListeners();
+    return null;
   }
 
   /// Signs out on this device and at Shopify, and drops this customer's
@@ -69,6 +95,7 @@ class AuthService extends ChangeNotifier {
     _firstName  = '';
     _lastName   = '';
     _email      = '';
+    _phone      = '';
     _isLoggedIn = false;
     notifyListeners();
   }

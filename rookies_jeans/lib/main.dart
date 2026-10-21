@@ -12,6 +12,7 @@ import 'package:rookies_jeans/screens/products/wishlist_page.dart';
 import 'package:rookies_jeans/screens/cart/cart.dart';
 import 'package:rookies_jeans/screens/profile/address_book.dart';
 import 'package:rookies_jeans/screens/profile/change_password_screen.dart';
+import 'package:rookies_jeans/screens/profile/edit_profile_screen.dart';
 import 'package:rookies_jeans/screens/profile/profile.dart';
 import 'package:rookies_jeans/services/auth_service.dart';
 import 'package:rookies_jeans/screens/products/product_detail_page.dart';
@@ -111,6 +112,7 @@ final GoRouter _appRouter = GoRouter(
     _page('/wishlist', (_) => const WishlistPage()),
     _page('/addresses', (_) => const AddressBookScreen()),
     _page('/change-password', (_) => const ChangePasswordScreen()),
+    _page('/edit-profile', (_) => const EditProfileScreen()),
     // Store collection links (https://rookiesjeans.com/collections/<handle>).
     // The title is filled in from the handle until the page loads.
     _page('/collections/:handle', (state) {
