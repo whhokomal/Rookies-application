@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/utils/format.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/models/product_model.dart';
 
 class ProductPeekDialog extends StatefulWidget {
@@ -98,22 +99,6 @@ class ProductPeekDialogState extends State<ProductPeekDialog> {
     }
   }
 
-  String _formatAmount(num amount) {
-    final rounded = amount.round();
-    final isNegative = rounded < 0;
-    final str = rounded.abs().toString();
-
-    if (str.length <= 3) return '${isNegative ? '-' : ''}$str';
-
-    final lastThree = str.substring(str.length - 3);
-    final rest = str.substring(0, str.length - 3);
-    final restWithCommas = rest.replaceAllMapped(
-      RegExp(r'\B(?=(\d{2})+(?!\d))'),
-      (m) => ',',
-    );
-    return '${isNegative ? '-' : ''}$restWithCommas,$lastThree';
-  }
-
   List<InlineSpan> _amountSpans({
     required num amount,
     required String currencyCode,
@@ -140,7 +125,7 @@ class ProductPeekDialogState extends State<ProductPeekDialog> {
         ),
       ),
       TextSpan(
-        text: _formatAmount(amount),
+        text: formatInr(amount),
         style: TextStyle(
           fontFamily: widget.numberFont,
           fontSize: fontSize,
@@ -252,9 +237,9 @@ class ProductPeekDialogState extends State<ProductPeekDialog> {
                             return CachedNetworkImage(
                               imageUrl: images[i],
                               fit: BoxFit.cover,
-                              placeholder: (_, __) =>
+                              placeholder: (_, _) =>
                                   Container(color: widget.bgColor),
-                              errorWidget: (_, __, ___) =>
+                              errorWidget: (_, _, _) =>
                                   Container(color: widget.bgColor),
                             );
                           },
@@ -288,7 +273,7 @@ class ProductPeekDialogState extends State<ProductPeekDialog> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.45),
+                              color: Colors.black.withValues(alpha: 0.45),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
@@ -323,7 +308,7 @@ class ProductPeekDialogState extends State<ProductPeekDialog> {
                                   decoration: BoxDecoration(
                                     color: i == _currentPage
                                         ? widget.primary
-                                        : Colors.white.withOpacity(0.65),
+                                        : Colors.white.withValues(alpha: 0.65),
                                   ),
                                 ),
                               ),

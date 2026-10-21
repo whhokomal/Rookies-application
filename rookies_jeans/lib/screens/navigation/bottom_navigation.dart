@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 
 class RookiesBottomNavBar extends StatelessWidget {
@@ -70,15 +70,15 @@ class RookiesBottomNavBar extends StatelessWidget {
                   Container(
                     height: barHeight,
                     decoration: BoxDecoration(
-                      color: _glassTint.withOpacity(_glassOpacity),
+                      color: _glassTint.withValues(alpha: _glassOpacity),
                       borderRadius: BorderRadius.circular(100),
                       border: Border.all(
-                        color: _glassBorder.withOpacity(0.15),
+                        color: _glassBorder.withValues(alpha: 0.15),
                         width: 1,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.18),
+                          color: Colors.black.withValues(alpha: 0.18),
                           blurRadius: 24,
                           offset: const Offset(0, 10),
                         ),
@@ -94,8 +94,8 @@ class RookiesBottomNavBar extends StatelessWidget {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Colors.white.withOpacity(0.10),
-                              Colors.white.withOpacity(0.0),
+                              Colors.white.withValues(alpha: 0.10),
+                              Colors.white.withValues(alpha: 0.0),
                             ],
                             stops: const [0.0, 0.55],
                           ),
@@ -113,9 +113,9 @@ class RookiesBottomNavBar extends StatelessWidget {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              Colors.white.withOpacity(0.0),
-                              Colors.white.withOpacity(0.45),
-                              Colors.white.withOpacity(0.0),
+                              Colors.white.withValues(alpha: 0.0),
+                              Colors.white.withValues(alpha: 0.45),
+                              Colors.white.withValues(alpha: 0.0),
                             ],
                           ),
                         ),

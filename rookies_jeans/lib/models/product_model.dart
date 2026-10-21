@@ -1,3 +1,5 @@
+import 'package:rookies_jeans/utils/format.dart';
+
 class ShopifyFilter {
   final String id;
   final String label;
@@ -77,16 +79,41 @@ class ShopifyProduct {
 
   bool get isOnSale => compareAtPrice != null && compareAtPrice! > price;
 
-  String get formattedPrice => currencyCode == 'INR'
-    ? price.toStringAsFixed(0)
-    : price.toStringAsFixed(2);
+  String get formattedPrice =>
+      currencyCode == 'INR' ? formatInr(price) : price.toStringAsFixed(2);
 
-String get formattedCompareAtPrice {
-  if (compareAtPrice == null) return '';
-  return currencyCode == 'INR'
-      ? compareAtPrice!.toStringAsFixed(0)
-      : compareAtPrice!.toStringAsFixed(2);
-}
+  String get formattedCompareAtPrice {
+    if (compareAtPrice == null) return '';
+    return currencyCode == 'INR'
+        ? formatInr(compareAtPrice!)
+        : compareAtPrice!.toStringAsFixed(2);
+  }
+
+  /// Only what a product card needs, for lists saved on the device
+  /// (wishlist, recently viewed). Price is as seen when saved.
+  Map<String, dynamic> toCardJson() => {
+        'id': id,
+        'title': title,
+        'handle': handle,
+        'price': price,
+        'compareAtPrice': compareAtPrice,
+        'currencyCode': currencyCode,
+        'imageUrls': imageUrls,
+      };
+
+  factory ShopifyProduct.fromCardJson(Map<String, dynamic> json) =>
+      ShopifyProduct(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        handle: json['handle'] as String,
+        price: (json['price'] as num).toDouble(),
+        compareAtPrice: (json['compareAtPrice'] as num?)?.toDouble(),
+        currencyCode: json['currencyCode'] as String,
+        imageUrls: List<String>.from(json['imageUrls'] as List),
+        variants: const [],
+        options: const [],
+      );
+
   String? get primaryImageUrl => imageUrls.isNotEmpty ? imageUrls.first : null;
 
   List<String> get colorHexCodes {

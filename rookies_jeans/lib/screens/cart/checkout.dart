@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
-import 'package:rookies_jeans/constant/shopify_constants.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
+import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/models/cart_model.dart';
 
 /// GoKwik checkout screen.
@@ -27,16 +27,6 @@ class CheckoutWebView extends StatefulWidget {
 }
 
 class _CheckoutWebViewState extends State<CheckoutWebView> {
-  static Color get primary => AppColors.primary;
-  static Color get onPrimary => AppColors.onPrimary;
-  static Color get bgColor => AppColors.bg;
-  static Color get cardColor => AppColors.card;
-  static Color get secondaryText => AppColors.secondaryText;
-  static Color get hint => AppColors.hint;
-
-  static const String _fBold = AppFonts.bold;
-  static const String _fBody = AppFonts.body;
-
   static const String _bridgeName = 'RookiesCheckout';
   /// The storefront is heavy and can take a while on slower phones, so each
   /// launch step gets its own time budget instead of one overall deadline.
@@ -220,20 +210,81 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
     });
   }
 
+  static bool _isStoreHost(String host) {
+    final h = host.toLowerCase();
+    final store = Uri.parse(ShopifyConstants.storeUrl).host;
+    return h == store ||
+        h == 'www.$store' ||
+        h == ShopifyConstants.shopDomain ||
+        h.endsWith('.shopify.com');
+  }
+
   void _checkForOrderCompletion(String url) {
     if (_orderCompleted) return;
-    final lower = url.toLowerCase();
-    final isThankYou = lower.contains('thank_you') ||
-        lower.contains('thank-you') ||
-        lower.contains('thankyou') ||
-        // Shopify order status page, where GoKwik lands after payment.
-        lower.contains('/orders/');
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    final path = uri.path.toLowerCase();
+    final isThankYou = path.contains('thank_you') ||
+        path.contains('thank-you') ||
+        path.contains('thankyou') ||
+        // Shopify's order status page (/<shop id>/orders/<token>) on the
+        // store, where GoKwik lands after payment. Not the account's order
+        // list (/account/orders), which a page can link to before paying.
+        (_isStoreHost(uri.host) &&
+            RegExp(r'^(/\d+)?/orders/[^/]+').hasMatch(path));
     if (isThankYou) {
       _orderCompleted = true;
       Future.delayed(const Duration(milliseconds: 900), () {
         if (mounted) Navigator.of(context).pop(true);
       });
     }
+  }
+
+  /// Opens a payment-app link. Android payment pages often use
+  /// `intent://pay?...#Intent;scheme=upi;package=...;end` links, which
+  /// url_launcher can't open directly, so they are turned back into the
+  /// app's own link (e.g. `upi://pay?...`); if that app isn't installed the
+  /// intent's browser fallback URL is opened instead.
+  Future<bool> _launchExternal(Uri uri, String rawUrl) async {
+    try {
+      return await _launchExternalOrThrow(uri, rawUrl);
+    } catch (e) {
+      debugPrint('CheckoutWebView: could not open $rawUrl ($e)');
+      return false;
+    }
+  }
+
+  Future<bool> _launchExternalOrThrow(Uri uri, String rawUrl) async {
+    if (uri.scheme.toLowerCase() != 'intent') {
+      return launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+
+    final hashIndex = rawUrl.indexOf('#Intent;');
+    if (hashIndex < 0) return false;
+    final target = rawUrl.substring('intent://'.length, hashIndex);
+    final params = <String, String>{};
+    for (final part in rawUrl.substring(hashIndex + '#Intent;'.length).split(';')) {
+      final eq = part.indexOf('=');
+      if (eq > 0) params[part.substring(0, eq)] = part.substring(eq + 1);
+    }
+
+    final scheme = params['scheme'];
+    if (scheme != null && scheme.isNotEmpty) {
+      final appUri = Uri.tryParse('$scheme://$target');
+      if (appUri != null &&
+          await launchUrl(appUri, mode: LaunchMode.externalApplication)) {
+        return true;
+      }
+    }
+
+    final fallback = params['S.browser_fallback_url'];
+    if (fallback != null) {
+      final fallbackUri = Uri.tryParse(Uri.decodeComponent(fallback));
+      if (fallbackUri != null) {
+        return launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+      }
+    }
+    return false;
   }
 
   Future<NavigationDecision> _handleNavigationRequest(
@@ -254,18 +305,17 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
 
     if (isWebScheme || isInternalScheme) return NavigationDecision.navigate;
 
-    final launched =
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final launched = await _launchExternal(uri, request.url);
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: primary,
+          backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
           content: Text(
             'Could not open payment app for this method.',
             style: TextStyle(
-              fontFamily: _fBody,
-              color: onPrimary,
+              fontFamily: AppFonts.body,
+              color: AppColors.onPrimary,
             ),
           ),
         ),
@@ -277,14 +327,14 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: cardColor,
+        backgroundColor: AppColors.card,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          color: primary,
+          color: AppColors.primary,
           onPressed: () => Navigator.of(context).pop(false),
         ),
         leadingWidth: 44,
@@ -298,13 +348,13 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
                 .clamp(20.0, 40.0),
             fontStyle: FontStyle.italic,
             height: 1,
-            color: primary,
+            color: AppColors.primary,
           ),
         ),
         centerTitle: false,
         actions: [
           IconButton(
-            icon: Icon(Icons.close_rounded, color: primary),
+            icon: Icon(Icons.close_rounded, color: AppColors.primary),
             onPressed: () => Navigator.of(context).pop(false),
           ),
         ],
@@ -317,9 +367,9 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
           else if (_isLoading || _launchingGokwik)
             Positioned.fill(
               child: ColoredBox(
-                color: bgColor,
+                color: AppColors.bg,
                 child: Center(
-                  child: CircularProgressIndicator(color: primary),
+                  child: CircularProgressIndicator(color: AppColors.primary),
                 ),
               ),
             ),
@@ -329,22 +379,22 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
   }
 
   Widget _errorView(String message) => ColoredBox(
-        color: bgColor,
+        color: AppColors.bg,
         child: Center(
           child: SingleChildScrollView(
             padding: EdgeInsets.all(_s(24)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline_rounded, size: _s(48), color: hint),
+                Icon(Icons.error_outline_rounded, size: _s(48), color: AppColors.hint),
                 SizedBox(height: _s(12)),
                 Text(
                   message,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: _fBody,
+                    fontFamily: AppFonts.body,
                     fontSize: _s(13),
-                    color: secondaryText,
+                    color: AppColors.secondaryText,
                     height: 1.5,
                   ),
                 ),
@@ -352,8 +402,8 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
                 ElevatedButton(
                   onPressed: _startGokwik,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primary,
-                    foregroundColor: onPrimary,
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
                     elevation: 0,
                     shape: AppShapes.button,
                     padding: EdgeInsets.symmetric(
@@ -362,7 +412,7 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
                   child: Text(
                     'RETRY',
                     style: TextStyle(
-                      fontFamily: _fBold,
+                      fontFamily: AppFonts.bold,
                       fontSize: _s(13),
                       fontWeight: FontWeight.w700,
                     ),

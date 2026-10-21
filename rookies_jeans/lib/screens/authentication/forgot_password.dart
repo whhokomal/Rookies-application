@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/services/shopify_api.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/services/shopify_auth_service.dart';
 
 class ForgotPassword extends StatefulWidget {
@@ -15,15 +16,6 @@ class _ForgotPasswordState extends State<ForgotPassword> {
 
   bool isLoading = false;
   bool emailSent = false;
-
-  static Color get bgColor => AppColors.bg;
-  static Color get cardColor => AppColors.card;
-  static Color get primary => AppColors.primary;
-  static Color get onPrimary => AppColors.onPrimary;
-  static Color get secondaryText => AppColors.secondaryText;
-  static Color get borderColor => AppColors.border;
-  static Color get fieldFill => AppColors.fieldFill;
-  static Color get hintColor => AppColors.hint;
 
   double _s(double base) =>
       Responsive.of(context, baseW: 400, maxScale: 1.3).s(base);
@@ -43,30 +35,30 @@ class _ForgotPasswordState extends State<ForgotPassword> {
     return InputDecoration(
       hintText: hintText,
       hintStyle: TextStyle(
-        color: hintColor,
+        color: AppColors.hint,
         fontSize: _s(14.5),
         fontWeight: FontWeight.w400,
       ),
       prefixIcon: Icon(
         icon,
-        color: secondaryText,
+        color: AppColors.secondaryText,
         size: _s(20),
       ),
       filled: true,
-      fillColor: fieldFill,
+      fillColor: AppColors.fieldFill,
       contentPadding:
           EdgeInsets.symmetric(vertical: _s(18), horizontal: _s(16)),
       border: OutlineInputBorder(
         // borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: borderColor),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         // borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: borderColor, width: 1),
+        borderSide: BorderSide(color: AppColors.border, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         // borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: primary, width: 1.2),
+        borderSide: BorderSide(color: AppColors.primary, width: 1.2),
       ),
       errorBorder: const OutlineInputBorder(
         // borderRadius: BorderRadius.circular(12),
@@ -115,7 +107,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
       }
     } catch (e) {
       if (!mounted) return;
-      _showMessage('Something went wrong: $e');
+      _showMessage(kFriendlyNetworkError);
       if (kDebugMode) {
         debugPrint('UI FORGOT PASSWORD EXCEPTION -> $e');
       }
@@ -129,11 +121,11 @@ class _ForgotPasswordState extends State<ForgotPassword> {
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: primary,
+        backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
         content: Text(
           message,
-          style: TextStyle(color: onPrimary),
+          style: TextStyle(color: AppColors.onPrimary),
         ),
       ),
     );
@@ -145,7 +137,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
     final outerH = width < 360 ? 16.0 : _s(24);
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -155,12 +147,12 @@ class _ForgotPasswordState extends State<ForgotPassword> {
               child: Container(
                 padding: EdgeInsets.all(_s(24)),
                 decoration: BoxDecoration(
-                  color: cardColor,
+                  color: AppColors.card,
                   // borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: borderColor),
+                  border: Border.all(color: AppColors.border),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 30,
                       offset: const Offset(0, 12),
                     ),
@@ -177,7 +169,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                           constraints: const BoxConstraints(),
                           icon: Icon(
                             Icons.arrow_back_rounded,
-                            color: primary,
+                            color: AppColors.primary,
                             size: _s(24),
                           ),
                         ),
@@ -190,15 +182,15 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                           Container(
                             padding: EdgeInsets.all(_s(16)),
                             decoration: BoxDecoration(
-                              color: fieldFill,
+                              color: AppColors.fieldFill,
                               shape: BoxShape.circle,
-                              border: Border.all(color: borderColor),
+                              border: Border.all(color: AppColors.border),
                             ),
                             child: Icon(
                               emailSent
                                   ? Icons.mark_email_read_outlined
                                   : Icons.lock_reset_rounded,
-                              color: primary,
+                              color: AppColors.primary,
                               size: _s(28),
                             ),
                           ),
@@ -209,7 +201,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                             style: TextStyle(
                               fontSize: _s(26),
                               fontWeight: FontWeight.w700,
-                              color: primary,
+                              color: AppColors.primary,
                               // letterSpacing: -0.5,
                             ),
                           ),
@@ -221,7 +213,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: _s(14.5),
-                              color: secondaryText,
+                              color: AppColors.secondaryText,
                               height: 1.5,
                             ),
                           ),
@@ -235,7 +227,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                         style: TextStyle(
                           fontSize: _s(14),
                           fontWeight: FontWeight.w600,
-                          color: primary,
+                          color: AppColors.primary,
                         ),
                       ),
                       SizedBox(height: _s(8)),
@@ -257,9 +249,9 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                         child: ElevatedButton(
                           onPressed: isLoading ? null : _handleSendResetLink,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: primary,
-                            foregroundColor: onPrimary,
-                            disabledBackgroundColor: borderColor,
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: AppColors.onPrimary,
+                            disabledBackgroundColor: AppColors.border,
                             elevation: 0,
                             shape: const RoundedRectangleBorder(
                                 // borderRadius: BorderRadius.circular(14),
@@ -271,7 +263,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                                   height: 22,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.2,
-                                    color: onPrimary,
+                                    color: AppColors.onPrimary,
                                   ),
                                 )
                               : Text(
@@ -293,8 +285,8 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                             setState(() => emailSent = false);
                           },
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: primary,
-                            side: BorderSide(color: borderColor),
+                            foregroundColor: AppColors.primary,
+                            side: BorderSide(color: AppColors.border),
                             shape: const RoundedRectangleBorder(
                                 // borderRadius: BorderRadius.circular(14),
                                 ),
@@ -315,8 +307,8 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                         child: ElevatedButton(
                           onPressed: () => Navigator.of(context).maybePop(),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: primary,
-                            foregroundColor: onPrimary,
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: AppColors.onPrimary,
                             elevation: 0,
                             shape: const RoundedRectangleBorder(
                                 // borderRadius: BorderRadius.circular(14),

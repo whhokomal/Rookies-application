@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:rookies_jeans/constant/shopify_api.dart';
+import 'package:rookies_jeans/services/shopify_api.dart';
 import 'package:rookies_jeans/models/cart_model.dart';
 
 class CartService extends ChangeNotifier {
@@ -11,12 +11,21 @@ class CartService extends ChangeNotifier {
 
   String? _cartId;
   ShopifyCart _cart = ShopifyCart.empty;
-  bool _isLoading = false;
+  int _pending = 0;
   bool _initialized = false;
+  String? _lastError;
+
+  /// Cart operations run one after another, so two quick taps on +/- can't
+  /// send overlapping mutations.
+  Future<void> _queue = Future.value();
 
   ShopifyCart get cart => _cart;
-  bool get isLoading => _isLoading;
+  bool get isLoading => _pending > 0;
   int get totalQuantity => _cart.totalQuantity;
+
+  /// Shopify's message for the last failed add/update (e.g. "Only 2 left in
+  /// stock"), or null when it failed for another reason.
+  String? get lastError => _lastError;
 
   void _log(String msg) {
     if (kDebugMode) debugPrint('[CartService] $msg');
@@ -56,6 +65,23 @@ class CartService extends ChangeNotifier {
     await prefs.remove(_cartIdPrefsKey);
   }
 
+  /// Runs [op] after any earlier cart operation finishes, with [isLoading]
+  /// true for the whole time.
+  Future<T> _run<T>(Future<T> Function() op) {
+    final result = _queue.then((_) async {
+      _pending++;
+      notifyListeners();
+      try {
+        return await op();
+      } finally {
+        _pending--;
+        notifyListeners();
+      }
+    });
+    _queue = result.then((_) {}, onError: (_) {});
+    return result;
+  }
+
   static const String _cartFragment = r'''
     fragment CartFields on Cart {
       id
@@ -75,11 +101,11 @@ class CartService extends ChangeNotifier {
                 title
                 availableForSale
                 priceV2: price { amount currencyCode }
-                image { url }
+                image { url(transform: {maxWidth: 400}) }
                 product {
                   handle
                   title
-                  images(first: 1) { edges { node { url } } }
+                  images(first: 1) { edges { node { url(transform: {maxWidth: 400}) } } }
                 }
               }
             }
@@ -94,15 +120,20 @@ class CartService extends ChangeNotifier {
     return res.body;
   }
 
-  Future<void> refresh() async {
+  /// First userError message from a cart mutation payload, if any.
+  String? _userErrorMessage(List userErrors) {
+    if (userErrors.isEmpty) return null;
+    final message = (userErrors.first as Map?)?['message']?.toString();
+    return (message == null || message.isEmpty) ? null : message;
+  }
+
+  Future<void> refresh() => _run(_refresh);
+
+  Future<void> _refresh() async {
     if (_cartId == null) {
       _cart = ShopifyCart.empty;
-      notifyListeners();
       return;
     }
-
-    _isLoading = true;
-    notifyListeners();
 
     final query = '''
       query getCart(\$cartId: ID!) {
@@ -118,20 +149,20 @@ class CartService extends ChangeNotifier {
       _log('cart fetch → ${decoded['errors'] ?? 'ok'}');
 
       final cartNode = decoded['data']?['cart'];
-      if (decoded['errors'] != null || cartNode == null) {
+      if (decoded['errors'] == null && cartNode == null) {
+        // Shopify no longer knows this cart (expired or converted).
         await _clearPersistedCartId();
         _cart = ShopifyCart.empty;
-      } else {
+      } else if (cartNode != null) {
         _cart = ShopifyCart.fromJson(cartNode as Map<String, dynamic>);
       }
+      // On a request error keep showing the cart we have.
     } catch (e) {
       _log('refresh EXCEPTION: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
     }
   }
 
+  /// Creates a cart holding one line. Returns the new cart id, or null.
   Future<String?> _createCart({required String variantId, required int quantity}) async {
     const mutation = r'''
       mutation cartCreate($input: CartInput) {
@@ -142,81 +173,84 @@ class CartService extends ChangeNotifier {
       }
     ''';
 
-    try {
-      final decoded = await _post(mutation, {
-        'input': {
-          'lines': [
-            {'merchandiseId': variantId, 'quantity': quantity}
-          ],
-        },
-      });
-
-      _log('cartCreate → ${decoded['errors'] ?? 'ok'}');
-      final data = decoded['data']?['cartCreate'];
-      final userErrors = (data?['userErrors'] as List?) ?? [];
-      if (decoded['errors'] != null || userErrors.isNotEmpty) {
-        _log('cartCreate userErrors: $userErrors');
-        return null;
-      }
-      return data?['cart']?['id'] as String?;
-    } catch (e) {
-      _log('_createCart EXCEPTION: $e');
-      return null;
-    }
-  }
-
-  Future<bool> addLine({required String variantId, int quantity = 1}) async {
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      if (_cartId == null) {
-        final newCartId = await _createCart(variantId: variantId, quantity: quantity);
-        if (newCartId == null) return false;
-        await _persistCartId(newCartId);
-        await refresh();
-        return true;
-      }
-
-      const mutation = r'''
-        mutation cartLinesAdd($cartId: ID!, $lines: [CartLineInput!]!) {
-          cartLinesAdd(cartId: $cartId, lines: $lines) {
-            cart { id }
-            userErrors { field message }
-          }
-        }
-      ''';
-
-      final decoded = await _post(mutation, {
-        'cartId': _cartId,
+    final decoded = await _post(mutation, {
+      'input': {
         'lines': [
           {'merchandiseId': variantId, 'quantity': quantity}
         ],
-      });
+      },
+    });
 
-      _log('cartLinesAdd → ${decoded['errors'] ?? 'ok'}');
-      final data = decoded['data']?['cartLinesAdd'];
-      final userErrors = (data?['userErrors'] as List?) ?? [];
-
-      if (decoded['errors'] != null || userErrors.isNotEmpty || data?['cart'] == null) {
-        _log('cartLinesAdd userErrors: $userErrors');
-        await _clearPersistedCartId();
-        final newCartId = await _createCart(variantId: variantId, quantity: quantity);
-        if (newCartId == null) return false;
-        await _persistCartId(newCartId);
-        await refresh();
-        return true;
-      }
-
-      await refresh();
-      return true;
-    } catch (e) {
-      _log('addLine EXCEPTION: $e');
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+    _log('cartCreate → ${decoded['errors'] ?? 'ok'}');
+    final data = decoded['data']?['cartCreate'];
+    final userErrors = (data?['userErrors'] as List?) ?? [];
+    if (decoded['errors'] != null || userErrors.isNotEmpty) {
+      _log('cartCreate userErrors: $userErrors');
+      _lastError = _userErrorMessage(userErrors);
+      return null;
     }
+    return data?['cart']?['id'] as String?;
+  }
+
+  Future<bool> addLine({required String variantId, int quantity = 1}) {
+    return _run(() async {
+      _lastError = null;
+      try {
+        if (_cartId == null) {
+          return _addToNewCart(variantId: variantId, quantity: quantity);
+        }
+
+        const mutation = r'''
+          mutation cartLinesAdd($cartId: ID!, $lines: [CartLineInput!]!) {
+            cartLinesAdd(cartId: $cartId, lines: $lines) {
+              cart { id }
+              userErrors { field message }
+            }
+          }
+        ''';
+
+        final decoded = await _post(mutation, {
+          'cartId': _cartId,
+          'lines': [
+            {'merchandiseId': variantId, 'quantity': quantity}
+          ],
+        });
+
+        _log('cartLinesAdd → ${decoded['errors'] ?? 'ok'}');
+        if (decoded['errors'] != null) return false;
+
+        final data = decoded['data']?['cartLinesAdd'];
+        final userErrors = (data?['userErrors'] as List?) ?? [];
+        if (userErrors.isNotEmpty) {
+          // E.g. sold out or not enough stock. The rest of the cart is
+          // still fine, so keep it and tell the customer why.
+          _log('cartLinesAdd userErrors: $userErrors');
+          _lastError = _userErrorMessage(userErrors);
+          return false;
+        }
+
+        if (data?['cart'] == null) {
+          // The saved cart no longer exists (expired or already checked
+          // out); only then start a new one.
+          await _clearPersistedCartId();
+          return _addToNewCart(variantId: variantId, quantity: quantity);
+        }
+
+        await _refresh();
+        return true;
+      } catch (e) {
+        _log('addLine EXCEPTION: $e');
+        return false;
+      }
+    });
+  }
+
+  Future<bool> _addToNewCart({required String variantId, required int quantity}) async {
+    final newCartId = await _createCart(variantId: variantId, quantity: quantity);
+    if (newCartId == null) return false;
+    await _persistCartId(newCartId);
+    await _refresh();
+    return true;
   }
 
   Future<bool> updateLineQuantity({required String lineId, required int quantity}) async {
@@ -225,9 +259,6 @@ class CartService extends ChangeNotifier {
     if (quantity <= 0) {
       return removeLine(lineId: lineId);
     }
-
-    _isLoading = true;
-    notifyListeners();
 
     const mutation = r'''
       mutation cartLinesUpdate($cartId: ID!, $lines: [CartLineUpdateInput!]!) {
@@ -238,38 +269,36 @@ class CartService extends ChangeNotifier {
       }
     ''';
 
-    try {
-      final decoded = await _post(mutation, {
-        'cartId': _cartId,
-        'lines': [
-          {'id': lineId, 'quantity': quantity}
-        ],
-      });
+    return _run(() async {
+      _lastError = null;
+      try {
+        final decoded = await _post(mutation, {
+          'cartId': _cartId,
+          'lines': [
+            {'id': lineId, 'quantity': quantity}
+          ],
+        });
 
-      _log('cartLinesUpdate → ${decoded['errors'] ?? 'ok'}');
-      final data = decoded['data']?['cartLinesUpdate'];
-      final userErrors = (data?['userErrors'] as List?) ?? [];
-      if (decoded['errors'] != null || userErrors.isNotEmpty) {
-        _log('cartLinesUpdate userErrors: $userErrors');
+        _log('cartLinesUpdate → ${decoded['errors'] ?? 'ok'}');
+        final data = decoded['data']?['cartLinesUpdate'];
+        final userErrors = (data?['userErrors'] as List?) ?? [];
+        if (decoded['errors'] != null || userErrors.isNotEmpty) {
+          _log('cartLinesUpdate userErrors: $userErrors');
+          _lastError = _userErrorMessage(userErrors);
+          return false;
+        }
+
+        await _refresh();
+        return true;
+      } catch (e) {
+        _log('updateLineQuantity EXCEPTION: $e');
         return false;
       }
-
-      await refresh();
-      return true;
-    } catch (e) {
-      _log('updateLineQuantity EXCEPTION: $e');
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    });
   }
 
   Future<bool> removeLine({required String lineId}) async {
     if (_cartId == null) return false;
-
-    _isLoading = true;
-    notifyListeners();
 
     const mutation = r'''
       mutation cartLinesRemove($cartId: ID!, $lineIds: [ID!]!) {
@@ -280,67 +309,30 @@ class CartService extends ChangeNotifier {
       }
     ''';
 
-    try {
-      final decoded = await _post(mutation, {
-        'cartId': _cartId,
-        'lineIds': [lineId],
-      });
+    return _run(() async {
+      try {
+        final decoded = await _post(mutation, {
+          'cartId': _cartId,
+          'lineIds': [lineId],
+        });
 
-      _log('cartLinesRemove → ${decoded['errors'] ?? 'ok'}');
-      final data = decoded['data']?['cartLinesRemove'];
-      final userErrors = (data?['userErrors'] as List?) ?? [];
-      if (decoded['errors'] != null || userErrors.isNotEmpty) {
-        _log('cartLinesRemove userErrors: $userErrors');
-        return false;
-      }
-
-      await refresh();
-      return true;
-    } catch (e) {
-      _log('removeLine EXCEPTION: $e');
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
- Future<bool> linkCheckoutToCustomer({required String customerAccessToken}) async {
-    if (_cartId == null) return false;
-
-    const mutation = r'''
-      mutation cartBuyerIdentityUpdate($cartId: ID!, $buyerIdentity: CartBuyerIdentityInput!) {
-        cartBuyerIdentityUpdate(cartId: $cartId, buyerIdentity: $buyerIdentity) {
-          cart { id }
-          userErrors { field message }
+        _log('cartLinesRemove → ${decoded['errors'] ?? 'ok'}');
+        final data = decoded['data']?['cartLinesRemove'];
+        final userErrors = (data?['userErrors'] as List?) ?? [];
+        if (decoded['errors'] != null || userErrors.isNotEmpty) {
+          _log('cartLinesRemove userErrors: $userErrors');
+          return false;
         }
-      }
-    ''';
 
-    try {
-      final decoded = await _post(mutation, {
-        'cartId': _cartId,
-        'buyerIdentity': {
-          'customerAccessToken': customerAccessToken,
-        },
-      });
-
-      _log('cartBuyerIdentityUpdate → ${decoded['errors'] ?? 'ok'}');
-      final data = decoded['data']?['cartBuyerIdentityUpdate'];
-      final userErrors = (data?['userErrors'] as List?) ?? [];
-      if (decoded['errors'] != null || userErrors.isNotEmpty) {
-        _log('cartBuyerIdentityUpdate userErrors: $userErrors');
+        await _refresh();
+        return true;
+      } catch (e) {
+        _log('removeLine EXCEPTION: $e');
         return false;
       }
-
-      await refresh();
-      return true;
-    } catch (e) {
-      _log('linkCheckoutToCustomer EXCEPTION: $e');
-      return false;
-    }
+    });
   }
-  
+
   Future<void> reset() async {
     await _clearPersistedCartId();
     _cart = ShopifyCart.empty;

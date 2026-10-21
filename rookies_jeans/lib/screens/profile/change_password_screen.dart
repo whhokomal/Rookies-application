@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/services/shopify_auth_service.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
@@ -11,15 +11,6 @@ class ChangePasswordScreen extends StatefulWidget {
 }
 
 class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
-  static Color get primary => AppColors.primary;
-  static Color get onPrimary => AppColors.onPrimary;
-  static Color get bgColor => AppColors.bg;
-  static Color get secondaryText => AppColors.secondaryText;
-
-  static const String _fHead = AppFonts.heading;
-  static const String _fBody = AppFonts.body;
-  static const String _fBold = AppFonts.bold;
-
   static const double _kMaxContentW = 480;
 
   final _emailController = TextEditingController();
@@ -45,12 +36,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: result.success ? primary : Colors.red,
+        backgroundColor: result.success ? AppColors.primary : Colors.red,
         content: Text(
           result.message ?? '',
           style: TextStyle(
-            fontFamily: _fBody,
-            color: result.success ? onPrimary : Colors.white,
+            fontFamily: AppFonts.body,
+            color: result.success ? AppColors.onPrimary : Colors.white,
             fontSize: 13,
           ),
         ),
@@ -77,7 +68,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     return AnimatedBuilder(
       animation: ThemeService.instance,
       builder: (context, _) => Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.bg,
 
       appBar: AppBar(
         elevation: 0,
@@ -91,7 +82,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               icon: Icon(
                 Icons.arrow_back_ios_new_rounded,
                 size: _s(context, 18).clamp(16.0, 26.0),
-                color: primary,
+                color: AppColors.primary,
               ),
               onPressed: () {
                 if (context.canPop()) {
@@ -113,7 +104,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     style: TextStyle(
                       fontSize: _s(context, 34).clamp(24.0, 46.0),
                       height: 1,
-                      fontFamily: _fHead,
+                      fontFamily: AppFonts.heading,
                       fontStyle: FontStyle.italic,
                       color: AppColors.primary,
                     ),
@@ -147,9 +138,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             "Enter your registered email address and we'll send you a password reset link.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontFamily: _fBody,
+                              fontFamily: AppFonts.body,
                               fontSize: _s(context, 13).clamp(12.0, 17.0),
-                              color: secondaryText,
+                              color: AppColors.secondaryText,
                               height: 1.5,
                             ),
                           ),
@@ -160,21 +151,21 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             style: TextStyle(
-                              fontFamily: _fBody,
+                              fontFamily: AppFonts.body,
                               fontSize: _s(context, 14).clamp(13.0, 18.0),
-                              color: primary,
+                              color: AppColors.primary,
                             ),
                             decoration: InputDecoration(
                               labelText: "Email",
                               labelStyle: TextStyle(
-                                fontFamily: _fBody,
+                                fontFamily: AppFonts.body,
                                 fontSize: _s(context, 13).clamp(12.0, 17.0),
                               ),
                               border: const OutlineInputBorder(),
                               enabledBorder: const OutlineInputBorder(),
                               focusedBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                  color: primary,
+                                  color: AppColors.primary,
                                   width: 1.5,
                                 ),
                               ),
@@ -204,8 +195,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             child: ElevatedButton(
                               onPressed: _loading ? null : _sendResetLink,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: primary,
-                                foregroundColor: onPrimary,
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: AppColors.onPrimary,
                                 elevation: 0,
                               ),
                               child: _loading
@@ -214,16 +205,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                       height: 22,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: onPrimary,
+                                        color: AppColors.onPrimary,
                                       ),
                                     )
                                   : Text(
                                       "SEND RESET LINK",
                                       style: TextStyle(
-                                        fontFamily: _fBold,
+                                        fontFamily: AppFonts.bold,
                                         fontSize: _s(context, 13).clamp(12.0, 17.0),
                                         fontWeight: FontWeight.w800,
-                                        color: onPrimary,
+                                        color: AppColors.onPrimary,
                                       ),
                                     ),
                             ),

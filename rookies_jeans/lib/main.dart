@@ -1,29 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
-import 'package:rookies_jeans/screens/Navigation/bottom_navigation.dart';
-import 'package:rookies_jeans/screens/Dashboard/home_screen.dart';
-import 'package:rookies_jeans/screens/authentication/login.dart';
-import 'package:rookies_jeans/screens/authentication/register.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
+import 'package:rookies_jeans/screens/navigation/bottom_navigation.dart';
+import 'package:rookies_jeans/screens/home/home_screen.dart';
+import 'package:rookies_jeans/screens/authentication/login_screen.dart';
+import 'package:rookies_jeans/screens/authentication/register_screen.dart';
 import 'package:rookies_jeans/screens/collections/collections.dart';
 import 'package:rookies_jeans/screens/orders/orders.dart';
-import 'package:rookies_jeans/screens/products/Wishlist.dart';
+import 'package:rookies_jeans/screens/products/wishlist_page.dart';
 import 'package:rookies_jeans/screens/cart/cart.dart';
 import 'package:rookies_jeans/screens/profile/address_book.dart';
 import 'package:rookies_jeans/screens/profile/change_password_screen.dart';
 import 'package:rookies_jeans/screens/profile/profile.dart';
+import 'package:rookies_jeans/services/auth_service.dart';
 import 'package:rookies_jeans/screens/products/product_detail_page.dart';
+import 'package:rookies_jeans/screens/products/products.dart';
+import 'package:rookies_jeans/models/collection_model.dart';
 import 'package:rookies_jeans/screens/search/search_tab_page.dart';
-import 'package:rookies_jeans/screens/splashscreen/splashscreen.dart';
+import 'package:rookies_jeans/screens/splash/splash_screen.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/services/recently_viewed_service.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
+import 'package:rookies_jeans/services/wishlist_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // The screens are designed for portrait only.
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   CartService.instance.initialize();
   RecentlyViewedService.instance.initialize();
+  WishlistService.instance.initialize();
 
   // Show the splash video right away; sign-in (which can hit the network)
   // and theme loading finish while it plays, and the splash waits for them
@@ -89,27 +97,39 @@ class _HomeFallback extends StatelessWidget {
 final GoRouter _appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/splash',
+  // A store link the app has no page for (e.g. "/" or "/pages/...") opens
+  // Home instead of go_router's "page not found" screen.
+  onException: (context, state, router) => router.go('/home'),
   routes: [
     GoRoute(
       path: '/splash',
       builder: (context, state) => const SplashScreen(),
     ),
-    _page('/login', (_) => const Login()),
-    _page('/register', (_) => const Register()),
+    _page('/login', (_) => const LoginScreen()),
+    _page('/register', (_) => const RegisterScreen()),
     _page('/orders', (_) => const OrdersScreen()),
     _page('/wishlist', (_) => const WishlistPage()),
     _page('/addresses', (_) => const AddressBookScreen()),
     _page('/change-password', (_) => const ChangePasswordScreen()),
-    _page('/data-privacy',
-        (_) => const Scaffold(body: Center(child: Text('Data & Privacy')))),
-    _page('/refund-policy',
-        (_) => const Scaffold(body: Center(child: Text('Return & Refund Policy')))),
-    _page('/shipping-policy',
-        (_) => const Scaffold(body: Center(child: Text('Shipping Policy')))),
-    _page('/store-locator',
-        (_) => const Scaffold(body: Center(child: Text('Store Locator')))),
-    _page('/track-order',
-        (_) => const Scaffold(body: Center(child: Text('Track Your Order')))),
+    // Store collection links (https://rookiesjeans.com/collections/<handle>).
+    // The title is filled in from the handle until the page loads.
+    _page('/collections/:handle', (state) {
+      final handle = state.pathParameters['handle']!;
+      final title = handle.replaceAll('-', ' ').toUpperCase();
+      return ProductsPage(
+        collection: ShopifyCollection(
+          id: handle,
+          title: title,
+          handle: handle,
+          label: title,
+        ),
+      );
+    }),
+    // A product opened from inside a collection on the website.
+    _page('/collections/:collection/products/:handle', (state) => ProductDetailPage(
+          handle: state.pathParameters['handle']!,
+          title: state.pathParameters['handle']!,
+        )),
     // Matches the /products/:handle path of shared product links
     // (https://rookiesjeans.com/products/<handle>) so tapping one when the
     // app is installed opens this page instead of falling through to the
@@ -196,7 +216,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
       // the floating glass pill (rounded corners, blur edges) and through
       // any space below content that doesn't fill the screen. Previously
       // this fell back to the app theme's `scaffoldBackgroundColor`
-      // (0xFFF5F5F3, an off-white/cream), which is what produced the
+      // (then an off-white/cream), which is what produced the
       // visible whitish strip above the nav bar. Set it explicitly to
       // black so it blends with the dark photography instead.
       backgroundColor: Colors.black,
@@ -214,7 +234,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const background = Color(0xFFF5F5F3);
+    const background = Colors.white;
     const primary    = Color(0xFF111111);
 
     return AnimatedBuilder(

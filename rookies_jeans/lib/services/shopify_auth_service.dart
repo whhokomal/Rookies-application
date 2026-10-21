@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:rookies_jeans/constant/shopify_constants.dart';
-import 'package:rookies_jeans/constant/shopify_api.dart';
+import 'package:rookies_jeans/constants/shopify_constants.dart';
+import 'package:rookies_jeans/services/shopify_api.dart';
 import 'package:rookies_jeans/models/auth_model.dart';
 import 'package:rookies_jeans/models/shopify_customer_model.dart';
 
@@ -129,7 +129,7 @@ class ShopifyAuthService {
       _log('AUTH LOGIN STACK -> $stack');
       return ShopifyAuthResult(
         success: false,
-        message: 'Something went wrong: $e',
+        message: kFriendlyNetworkError,
       );
     }
   }
@@ -238,7 +238,7 @@ class ShopifyAuthService {
       _log('AUTH RECOVER STACK -> $stack');
       return ShopifyAuthResult(
         success: false,
-        message: 'Something went wrong: $e',
+        message: kFriendlyNetworkError,
       );
     }
   }
@@ -332,6 +332,25 @@ class ShopifyAuthService {
 
   Future<void> logout() async {
     _log('AUTH LOGOUT START');
+    final token = await _storage.read(key: _customerTokenKey);
+    if (token != null && token.isNotEmpty) {
+      // Revoke it at Shopify too, so a copied token stops working. Best
+      // effort: signing out on the device must not depend on the network.
+      try {
+        await ShopifyGraphQL.post(
+          r'''
+            mutation customerAccessTokenDelete($token: String!) {
+              customerAccessTokenDelete(customerAccessToken: $token) {
+                deletedAccessToken
+              }
+            }
+          ''',
+          variables: {'token': token},
+        );
+      } catch (e) {
+        _log('AUTH LOGOUT REVOKE FAILED -> $e');
+      }
+    }
     await _storage.delete(key: _customerTokenKey);
     await _storage.delete(key: _customerTokenExpiryKey);
     _log('AUTH LOGOUT DONE');
@@ -494,7 +513,7 @@ class ShopifyAuthService {
       _log('AUTH REGISTER STACK -> $stack');
       return ShopifyAuthResult(
         success: false,
-        message: 'Something went wrong: $e',
+        message: kFriendlyNetworkError,
       );
     }
   }

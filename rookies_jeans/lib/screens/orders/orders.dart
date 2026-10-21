@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:rookies_jeans/constant/shopify_constants.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:rookies_jeans/constants/shopify_constants.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/screens/products/product_detail_page.dart';
-import 'package:rookies_jeans/screens/profile/profile.dart';
+import 'package:rookies_jeans/widgets/web_view_screen.dart';
 import 'package:rookies_jeans/services/order_service.dart';
 
 class _R {
@@ -33,9 +34,6 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  static Color get _primary => AppColors.primary;
-  static Color get _bg => AppColors.bg;
-
   final _svc = ShopifyOrderService.instance;
 
   List<Map<String, dynamic>> _orders = [];
@@ -66,13 +64,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return AnimatedBuilder(
       animation: ThemeService.instance,
       builder: (context, _) => Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.card,
         elevation: 0.5,
         shadowColor: AppColors.border,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: _primary),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.primary),
           // maybePop goes through the route's PopScope, so when this is the
           // only page (iOS has no system back) it falls back to Home.
           onPressed: () => Navigator.maybePop(context),
@@ -89,25 +87,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 .clamp(20.0, 40.0),
             fontStyle: FontStyle.italic,
             height: 1,
-            color: _primary,
+            color: AppColors.primary,
           ),
         ),
         centerTitle: false,
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: _primary, strokeWidth: 2))
+          ? Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2))
           : _errorMessage != null
               ? _ErrorState(message: _errorMessage!, onRetry: _load)
               : _orders.isEmpty
                   ? const _EmptyState()
                   : RefreshIndicator(
-                      color: _primary,
+                      color: AppColors.primary,
                       onRefresh: _load,
                       child: r.center(
                         ListView.separated(
                           padding: const EdgeInsets.all(16),
                           itemCount: _orders.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          separatorBuilder: (_, _) => const SizedBox(height: 10),
                           itemBuilder: (context, i) => _OrderTile(
                             order: _orders[i],
                             svc: _svc,
@@ -161,8 +159,8 @@ class _OrderTile extends StatelessWidget {
             ClipRRect(
               // borderRadius: BorderRadius.circular(8),
               child: imageUrl != null
-                  ? Image.network(imageUrl, width: imgW, height: imgH, fit: BoxFit.fill,
-                      errorBuilder: (_, __, ___) => _imgPlaceholder(imgW))
+                  ? CachedNetworkImage(imageUrl: imageUrl, width: imgW, height: imgH, fit: BoxFit.fill,
+                      errorWidget: (_, _, _) => _imgPlaceholder(imgW))
                   : _imgPlaceholder(imgW),
             ),
             const SizedBox(width: 14),
@@ -257,7 +255,7 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -349,7 +347,6 @@ class OrderDetailScreen extends StatefulWidget {
 }
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
-  static Color get _primary => AppColors.primary;
   final _svc = ShopifyOrderService.instance;
 
   late Map<String, dynamic> _order = widget.order;
@@ -437,7 +434,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           elevation: 0,
           scrolledUnderElevation: 0,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: _primary),
+            icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.primary),
             onPressed: () => Navigator.of(context).pop(_changed),
           ),
           leadingWidth: 44,
@@ -452,7 +449,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   .clamp(20.0, 40.0),
               fontStyle: FontStyle.italic,
               height: 1,
-              color: _primary,
+              color: AppColors.primary,
             ),
           ),
           centerTitle: false,
@@ -474,7 +471,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         fontFamily: ShopifyConstants.fontHeading,
                         fontSize: r.s(30),
                         height: 1,
-                        color: _primary,
+                        color: AppColors.primary,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -820,8 +817,8 @@ class _LineItemRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           imageUrl != null
-              ? Image.network(imageUrl, width: imgW, height: imgH, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _imgPlaceholder(imgW))
+              ? CachedNetworkImage(imageUrl: imageUrl, width: imgW, height: imgH, fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => _imgPlaceholder(imgW))
               : _imgPlaceholder(imgW),
           const SizedBox(width: 14),
           Expanded(
@@ -1117,7 +1114,7 @@ class _ActionButton extends StatelessWidget {
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.onPrimary,
                 disabledBackgroundColor:
-                    loading ? AppColors.primary : AppColors.primary.withOpacity(0.4),
+                    loading ? AppColors.primary : AppColors.primary.withValues(alpha: 0.4),
                 disabledForegroundColor: AppColors.onPrimary,
                 elevation: 0,
                 shape: shape,

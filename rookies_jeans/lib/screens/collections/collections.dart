@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/models/banner_model.dart';
 import 'package:rookies_jeans/models/collection_model.dart';
 import 'package:rookies_jeans/models/home_content_models.dart';
@@ -14,9 +14,9 @@ import 'package:rookies_jeans/screens/products/product_peek_dialog.dart';
 import 'package:rookies_jeans/screens/products/products.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
-import 'package:rookies_jeans/widget/banner_page_dots.dart';
-import 'package:rookies_jeans/widget/price_text.dart';
-import 'package:rookies_jeans/widget/sticker_chip.dart';
+import 'package:rookies_jeans/widgets/banner_page_dots.dart';
+import 'package:rookies_jeans/widgets/price_text.dart';
+import 'package:rookies_jeans/widgets/sticker_chip.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Backdrop for product cutouts, which are shot on a light grey. Fixed in
@@ -54,8 +54,6 @@ class ExploreCategoriesPage extends StatefulWidget {
 
 class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
   late Future<List<ShopMenuSection>> _future;
-  static const String _fHead = AppFonts.heading;
-  static const String _fBody = AppFonts.body;
 
   _MenuPanel? _expandedPanel;
 
@@ -159,7 +157,7 @@ class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
                   style: TextStyle(
                     fontSize: titleSize,
                     height: 1,
-                    fontFamily: _fHead,
+                    fontFamily: AppFonts.heading,
                     fontStyle: FontStyle.italic,
                     color: AppColors.primary,
                   ),
@@ -198,7 +196,7 @@ class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
                         color: AppColors.primary,
                       ),
                       onTap: _openCollections,
-                      fontFamily: _fBody,
+                      fontFamily: AppFonts.body,
                       fontWeight: FontWeight.w900,
                     ),
                     _divider(),
@@ -206,7 +204,7 @@ class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
                       title: (topWear?.title ?? 'TOP WEAR').toUpperCase(),
                       trailing: _panelIcon(_expandedPanel == _MenuPanel.topWear),
                       onTap: () => _togglePanel(_MenuPanel.topWear),
-                      fontFamily: _fBody,
+                      fontFamily: AppFonts.body,
                       fontWeight: FontWeight.w900,
                     ),
                     AnimatedCrossFade(
@@ -216,7 +214,7 @@ class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
                           : CrossFadeState.showSecond,
                       firstChild: _CategoriesGrid(
                         categories: topWear?.categories ?? const [],
-                        headFont: _fBody,
+                        headFont: AppFonts.body,
                         bodyFont: AppFonts.accent,
                         onCategoryTap: _openCategory,
                         onFitTap: _openFit,
@@ -229,7 +227,7 @@ class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
                       trailing:
                           _panelIcon(_expandedPanel == _MenuPanel.bottomWear),
                       onTap: () => _togglePanel(_MenuPanel.bottomWear),
-                      fontFamily: _fBody,
+                      fontFamily: AppFonts.body,
                       fontWeight: FontWeight.w900,
                     ),
                     AnimatedCrossFade(
@@ -239,7 +237,7 @@ class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
                           : CrossFadeState.showSecond,
                       firstChild: _CategoriesGrid(
                         categories: bottomWear?.categories ?? const [],
-                        headFont: _fBody,
+                        headFont: AppFonts.body,
                         bodyFont: AppFonts.accent,
                         onCategoryTap: _openCategory,
                         onFitTap: _openFit,
@@ -483,10 +481,6 @@ class CollectionsShowcasePage extends StatefulWidget {
 }
 
 class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
-  static const String _fHead = AppFonts.heading;
-  static const String _fBody = AppFonts.body;
-  static const String _fNumber = AppFonts.number;
-
   /// Looks shown at first, then how many more each "View more" tap adds.
   static const int _kLooksInitial = 6;
   static const int _kLooksStep = 4;
@@ -520,7 +514,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
     final service = ShopifyStorefrontService.instance;
     final results = await Future.wait([
       service.getExploreMenuSections(),
-      service.getHomeBanners(),
+      service.getCollectionsBanners(),
       service.getShopTheLookEntries(),
       service.getOccasionTilesContent(),
     ]);
@@ -584,16 +578,37 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
     }
   }
 
+  /// Page heading for a collection opened from a banner: the banner's
+  /// title, else the handle ("aw26" -> "AW26").
+  String _bannerTitle(HomeBanner banner, String handle) =>
+      banner.title.trim().isNotEmpty
+          ? banner.title
+          : handle.replaceAll('-', ' ').toUpperCase();
+
   void _openBanner(HomeBanner banner) {
-    final String? url = banner.ctaUrl;
-    if (url == null || url.isEmpty) return;
+    final String? url = banner.link;
+    if (url == null) return;
+    final product = RegExp(r'/products/([^/?#]+)').firstMatch(url);
+    if (product != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              ProductDetailPage(handle: product.group(1)!, title: banner.title),
+        ),
+      );
+      return;
+    }
     final match = RegExp(r'/collections/([^/?#]+)').firstMatch(url);
     if (match != null) {
-      _openCollection(match.group(1)!, banner.ctaLabel ?? banner.title);
+      final handle = match.group(1)!;
+      _openCollection(handle, _bannerTitle(banner, handle));
     } else if (url.startsWith('http://') || url.startsWith('https://')) {
       launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } else {
-      _openCollection(url, banner.ctaLabel ?? banner.title);
+      // A bare collection handle; Shopify handles are lower case.
+      final handle = url.toLowerCase();
+      _openCollection(handle, _bannerTitle(banner, handle));
     }
   }
 
@@ -615,10 +630,10 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Dismiss',
-      barrierColor: Colors.black.withOpacity(0.55),
+      barrierColor: Colors.black.withValues(alpha: 0.55),
       transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
-      transitionBuilder: (ctx, anim, _, __) {
+      pageBuilder: (_, _, _) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, anim, _, _) {
         final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
         return ScaleTransition(
           scale: curved,
@@ -646,7 +661,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
                     content: Text(
                       success
                           ? '${product.title} added to cart'
-                          : 'Failed to add item to cart',
+                          : (CartService.instance.lastError ?? 'Failed to add item to cart'),
                       style: const TextStyle(fontFamily: AppFonts.accent),
                     ),
                     duration: const Duration(seconds: 2),
@@ -753,7 +768,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
       (MediaQuery.of(context).size.width * factor).clamp(min, max);
 
   TextStyle _headStyle(double size, {Color? color}) => TextStyle(
-        fontFamily: _fHead,
+        fontFamily: AppFonts.heading,
         fontSize: size,
         fontStyle: FontStyle.italic,
         fontWeight: FontWeight.w700,
@@ -787,7 +802,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
                 Text(
                   trailing,
                   style: TextStyle(
-                    fontFamily: _fNumber,
+                    fontFamily: AppFonts.number,
                     fontSize: 10,
                     letterSpacing: 1.6,
                     color: AppColors.secondaryText,
@@ -815,8 +830,8 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
       fit: fit,
       alignment: Alignment.topCenter,
       fadeInDuration: const Duration(milliseconds: 150),
-      placeholder: (_, __) => const SizedBox.shrink(),
-      errorWidget: (_, __, ___) => placeholder,
+      placeholder: (_, _) => const SizedBox.shrink(),
+      errorWidget: (_, _, _) => placeholder,
     );
   }
 
@@ -926,7 +941,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               itemCount: cards.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, i) => cards[i],
             ),
           ),
@@ -960,7 +975,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: _fNumber,
+                fontFamily: AppFonts.number,
                 fontSize: 11,
                 letterSpacing: 1,
                 height: 1.3,
@@ -1019,7 +1034,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
                 child: Text(
                   'VIEW MORE',
                   style: TextStyle(
-                    fontFamily: _fNumber,
+                    fontFamily: AppFonts.number,
                     fontSize: 13,
                     letterSpacing: 2.5,
                     fontWeight: FontWeight.w600,
@@ -1078,7 +1093,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontFamily: _fBody,
+                      fontFamily: AppFonts.body,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       height: 1.25,
@@ -1091,7 +1106,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
                     currencyCode: product.currencyCode,
                     fontSize: 12,
                     color: AppColors.primary,
-                    amountFontFamily: _fBody,
+                    amountFontFamily: AppFonts.body,
                   ),
                 ],
               ),
@@ -1266,7 +1281,13 @@ class _BannerCarouselState extends State<_BannerCarousel> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final double height = (size.height * 0.62).clamp(320.0, 620.0);
+    // Follow the first banner's own shape so the whole picture shows
+    // (nothing cut off top or bottom); other slides fill the same box.
+    final double? ratio =
+        widget.banners.isNotEmpty ? widget.banners.first.aspectRatio : null;
+    final double height = ratio != null
+        ? (size.width / ratio).clamp(200.0, size.height * 0.8)
+        : (size.height * 0.62).clamp(320.0, 620.0);
 
     if (widget.banners.isEmpty) {
       return SizedBox(
@@ -1300,9 +1321,12 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                   child: CachedNetworkImage(
                     imageUrl: banner.imageUrl!,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) =>
+                    // If a slide is a different shape, keep its top (the
+                    // headline) and trim the bottom instead.
+                    alignment: Alignment.topCenter,
+                    placeholder: (_, _) =>
                         const ColoredBox(color: Color(0xFF2A2A2A)),
-                    errorWidget: (_, __, ___) =>
+                    errorWidget: (_, _, _) =>
                         const ColoredBox(color: Color(0xFF2A2A2A)),
                   ),
                 );
@@ -1334,7 +1358,6 @@ class AllCollectionsPage extends StatefulWidget {
 
 class _AllCollectionsPageState extends State<AllCollectionsPage> {
   late Future<List<ShopifyCollection>> _future;
-  static const String _fHead = AppFonts.heading;
 
   @override
   void initState() {
@@ -1388,7 +1411,7 @@ class _AllCollectionsPageState extends State<AllCollectionsPage> {
                   style: TextStyle(
                     fontSize: titleSize,
                     height: 1,
-                    fontFamily: _fHead,
+                    fontFamily: AppFonts.heading,
                     fontStyle: FontStyle.italic,
                     color: AppColors.primary,
                   ),
@@ -1475,22 +1498,18 @@ class _CategoryTile extends StatelessWidget {
                 Container(
                   color: const Color(0xFFD9D9D9),
                   child: category.imageUrl != null
-                      ? Image.network(
-                          category.imageUrl!,
+                      ? CachedNetworkImage(
+                          imageUrl: category.imageUrl!,
                           fit: BoxFit.cover,
-                          loadingBuilder: (context, child, progress) {
-                            if (progress == null) return child;
-                            return const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stack) =>
-                              const SizedBox.shrink(),
+                          placeholder: (_, _) => const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: (_, _, _) => const SizedBox.shrink(),
                         )
                       : null,
                 ),
@@ -1505,8 +1524,8 @@ class _CategoryTile extends StatelessWidget {
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          Colors.black.withOpacity(0.45),
-                          Colors.black.withOpacity(0.0),
+                          Colors.black.withValues(alpha: 0.45),
+                          Colors.black.withValues(alpha: 0.0),
                         ],
                       ),
                     ),

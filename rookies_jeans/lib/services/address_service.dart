@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:rookies_jeans/constant/shopify_api.dart';
+import 'package:rookies_jeans/services/shopify_api.dart';
 import 'package:rookies_jeans/models/address_model.dart';
 import 'package:rookies_jeans/services/shopify_auth_service.dart';
 
@@ -43,7 +43,7 @@ class AddressService extends ChangeNotifier {
       query customerAddresses($token: String!) {
         customer(customerAccessToken: $token) {
           defaultAddress { id }
-          addresses(first: 20) {
+          addresses(first: 100) {
             edges {
               node {
                 id

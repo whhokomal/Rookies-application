@@ -4,29 +4,30 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/services/shopify_api.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/models/auth_model.dart';
 import 'package:rookies_jeans/screens/authentication/forgot_password.dart';
-import 'package:rookies_jeans/screens/profile/profile.dart';
+import 'package:rookies_jeans/services/auth_service.dart';
 import 'package:rookies_jeans/services/otp_auth_service.dart';
 import 'package:rookies_jeans/services/shopify_auth_service.dart';
 
-/// Phone OTP is the primary sign-in; email + password is the backup.
+/// Phone OTP is the AppColors.primary sign-in; email + password is the backup.
 enum _LoginMode { phone, email }
 
 /// Steps of the phone OTP flow.
 enum _OtpStep { enterPhone, enterOtp, completeProfile }
 
-class Login extends StatefulWidget {
-  const Login({super.key, this.isCheckoutFlow = false});
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key, this.isCheckoutFlow = false});
 
   final bool isCheckoutFlow;
 
   @override
-  State<Login> createState() => _LoginState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginState extends State<Login> {
+class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController    = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController phoneController    = TextEditingController();
@@ -47,15 +48,6 @@ class _LoginState extends State<Login> {
   String? _verificationToken;
   Timer?  _resendTimer;
   int     _resendIn = 0;
-
-  static Color get bgColor      => AppColors.bg;
-  static Color get cardColor    => AppColors.card;
-  static Color get primary      => AppColors.primary;
-  static Color get onPrimary    => AppColors.onPrimary;
-  static Color get secondaryText => AppColors.secondaryText;
-  static Color get borderColor  => AppColors.border;
-  static Color get fieldFill    => AppColors.fieldFill;
-  static Color get hintColor    => AppColors.hint;
 
   double _s(double base) =>
       Responsive.of(context, baseW: 400, maxScale: 1.3).s(base);
@@ -86,26 +78,26 @@ class _LoginState extends State<Login> {
     return InputDecoration(
       hintText: hintText,
       hintStyle: TextStyle(
-        color: hintColor,
+        color: AppColors.hint,
         fontSize: _s(14.5),
         fontWeight: FontWeight.w400,
       ),
       // leadingText (e.g. "+91") sits beside the icon so it shows even when
       // the field is empty and unfocused, unlike InputDecoration.prefix.
       prefixIcon: leadingText == null
-          ? Icon(icon, color: secondaryText, size: _s(20))
+          ? Icon(icon, color: AppColors.secondaryText, size: _s(20))
           : Padding(
               padding: EdgeInsets.only(left: _s(12), right: _s(8)),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, color: secondaryText, size: _s(20)),
+                  Icon(icon, color: AppColors.secondaryText, size: _s(20)),
                   SizedBox(width: _s(8)),
                   Text(
                     leadingText,
                     style: TextStyle(
                       fontSize: _s(14.5),
-                      color: primary,
+                      color: AppColors.primary,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -115,20 +107,20 @@ class _LoginState extends State<Login> {
       suffixIcon: suffixIcon,
       counterText: '',
       filled: true,
-      fillColor: fieldFill,
+      fillColor: AppColors.fieldFill,
       contentPadding:
           EdgeInsets.symmetric(vertical: _s(18), horizontal: _s(16)),
       border: OutlineInputBorder(
         // borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: borderColor),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         // borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: borderColor, width: 1),
+        borderSide: BorderSide(color: AppColors.border, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         // borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: primary, width: 1.2),
+        borderSide: BorderSide(color: AppColors.primary, width: 1.2),
       ),
       errorBorder: const OutlineInputBorder(
         // borderRadius: BorderRadius.circular(12),
@@ -141,13 +133,7 @@ class _LoginState extends State<Login> {
   // Shared success handling (both login modes end here)
 
   void _onSignedIn(ShopifyAuthResult result) {
-    if (result.customer != null) {
-      AuthService.instance.signIn(
-        firstName: result.customer!.firstName ?? '',
-        lastName:  result.customer!.lastName  ?? '',
-        email:     result.customer!.email     ?? '',
-      );
-    }
+    AuthService.instance.signIn(result.customer);
     _showMessage(
       result.customer != null
           ? 'Welcome ${result.customer!.fullName}'
@@ -172,7 +158,7 @@ class _LoginState extends State<Login> {
       await action();
     } catch (e) {
       if (!mounted) return;
-      _showMessage('Something went wrong: $e');
+      _showMessage(kFriendlyNetworkError);
       if (kDebugMode) debugPrint('UI LOGIN EXCEPTION -> $e');
     } finally {
       if (mounted) setState(() => isLoading = false);
@@ -325,9 +311,9 @@ class _LoginState extends State<Login> {
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: primary,
+        backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
-        content: Text(message, style: TextStyle(color: onPrimary)),
+        content: Text(message, style: TextStyle(color: AppColors.onPrimary)),
       ),
     );
   }
@@ -354,7 +340,7 @@ class _LoginState extends State<Login> {
             style: TextStyle(
                 fontSize: _s(14),
                 fontWeight: FontWeight.w400,
-                color: primary)),
+                color: AppColors.primary)),
       );
 
   Widget _primaryButton(String text, VoidCallback onPressed) {
@@ -364,9 +350,9 @@ class _LoginState extends State<Login> {
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: primary,
-          foregroundColor: onPrimary,
-          disabledBackgroundColor: borderColor,
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.onPrimary,
+          disabledBackgroundColor: AppColors.border,
           elevation: 0,
           // shape: RoundedRectangleBorder(
           //     borderRadius: BorderRadius.circular(14)),
@@ -376,7 +362,7 @@ class _LoginState extends State<Login> {
                 width: 22,
                 height: 22,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2.2, color: onPrimary),
+                    strokeWidth: 2.2, color: AppColors.onPrimary),
               )
             : Text(text,
                 style: TextStyle(
@@ -393,7 +379,7 @@ class _LoginState extends State<Login> {
     return TextButton(
       onPressed: isLoading ? null : onPressed,
       style: TextButton.styleFrom(
-        foregroundColor: primary,
+        foregroundColor: AppColors.primary,
         padding: EdgeInsets.zero,
       ),
       child: Text(text,
@@ -403,13 +389,13 @@ class _LoginState extends State<Login> {
 
   Widget _divider(String text) => Row(
         children: [
-          Expanded(child: Divider(color: borderColor)),
+          Expanded(child: Divider(color: AppColors.border)),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: _s(12)),
             child: Text(text,
-                style: TextStyle(color: secondaryText, fontSize: _s(13))),
+                style: TextStyle(color: AppColors.secondaryText, fontSize: _s(13))),
           ),
-          Expanded(child: Divider(color: borderColor)),
+          Expanded(child: Divider(color: AppColors.border)),
         ],
       );
 
@@ -437,7 +423,7 @@ class _LoginState extends State<Login> {
           children: [
             Expanded(
               child: Text("OTP sent to $_phone",
-                  style: TextStyle(color: secondaryText, fontSize: _s(14))),
+                  style: TextStyle(color: AppColors.secondaryText, fontSize: _s(14))),
             ),
             _linkButton("Change", _changeNumber),
           ],
@@ -472,7 +458,7 @@ class _LoginState extends State<Login> {
                   padding: EdgeInsets.symmetric(vertical: _s(12)),
                   child: Text("Resend OTP in ${_resendIn}s",
                       style: TextStyle(
-                          color: secondaryText, fontSize: _s(13.5))),
+                          color: AppColors.secondaryText, fontSize: _s(13.5))),
                 )
               : Wrap(
                   spacing: _s(16),
@@ -490,7 +476,7 @@ class _LoginState extends State<Login> {
   List<Widget> _profileStep() => [
         Text("Number verified! Tell us a bit about you to finish setting up your account.",
             style: TextStyle(
-                color: secondaryText, fontSize: _s(14), height: 1.5)),
+                color: AppColors.secondaryText, fontSize: _s(14), height: 1.5)),
         SizedBox(height: _s(18)),
         _label("First Name"),
         TextFormField(
@@ -558,7 +544,7 @@ class _LoginState extends State<Login> {
                 isPasswordHidden
                     ? Icons.visibility_off_outlined
                     : Icons.visibility_outlined,
-                color: secondaryText,
+                color: AppColors.secondaryText,
                 size: _s(22),
               ),
             ),
@@ -594,7 +580,7 @@ class _LoginState extends State<Login> {
         textTheme: theme.textTheme.apply(fontFamily: AppFonts.body),
       ),
       child: Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -604,12 +590,12 @@ class _LoginState extends State<Login> {
               child: Container(
                 padding: EdgeInsets.all(_s(24)),
                 decoration: BoxDecoration(
-                  color: cardColor,
+                  color: AppColors.card,
                   // borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: borderColor),
+                  border: Border.all(color: AppColors.border),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 30,
                       offset: const Offset(0, 12),
                     ),
@@ -631,7 +617,7 @@ class _LoginState extends State<Login> {
                               fontFamily: AppFonts.heading,
                               fontSize: _s(30),
                               fontWeight: FontWeight.w400,
-                              color: primary,
+                              color: AppColors.primary,
                               // letterSpacing: -0.5,
                             ),
                           ),
@@ -645,7 +631,7 @@ class _LoginState extends State<Login> {
                               fontFamily: AppFonts.body,
                               fontSize: _s(15),
                               fontWeight: FontWeight.w400,
-                              color: secondaryText,
+                              color: AppColors.secondaryText,
                               height: 1.5,
                             ),
                           ),
@@ -677,14 +663,14 @@ class _LoginState extends State<Login> {
                             style: TextStyle(
                                 fontFamily: AppFonts.body,
                                 fontWeight: FontWeight.w400,
-                                color: secondaryText,
+                                color: AppColors.secondaryText,
                                 fontSize: _s(14))),
                         GestureDetector(
                           onTap: () => context.push('/register'),
                           child: Text("Create Account",
                               style: TextStyle(
                                   fontFamily: AppFonts.body,
-                                  color: primary,
+                                  color: AppColors.primary,
                                   fontSize: _s(14),
                                   fontWeight: FontWeight.w400)),
                         ),

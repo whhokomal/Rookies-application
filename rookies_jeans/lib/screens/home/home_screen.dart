@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
-import 'package:rookies_jeans/constant/shopify_constants.dart';
+import 'package:rookies_jeans/utils/format.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
+import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/models/banner_model.dart';
 import 'package:rookies_jeans/models/collection_model.dart';
 import 'package:rookies_jeans/models/home_content_models.dart';
@@ -15,9 +16,9 @@ import 'package:rookies_jeans/screens/products/products.dart';
 import 'package:rookies_jeans/screens/search/search_tab_page.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
-import 'package:rookies_jeans/widget/wishlist_heart_button.dart';
-import 'package:rookies_jeans/widget/banner_page_dots.dart';
-import 'package:rookies_jeans/widget/sticker_chip.dart';
+import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
+import 'package:rookies_jeans/widgets/banner_page_dots.dart';
+import 'package:rookies_jeans/widgets/sticker_chip.dart';
 
 typedef R = Responsive;
 
@@ -28,25 +29,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static Color get primary => AppColors.primary;
-  static Color get bgColor => AppColors.bg;
-  static Color get secondaryTxt => AppColors.secondaryText;
-  static const String _fBody = AppFonts.body;
-  static const String _fBold = AppFonts.bold;
-  static const String _fNumber = AppFonts.number;
-
-  // Fixed dark color for text/icons that sit on a hard-coded white
-  // background (e.g. the hero CTA button). Using `primary` there breaks in
-  // dark mode, where AppColors.primary becomes white -> white-on-white.
-  // ignore: unused_field
-  static const Color _onLightBtn = Color(0xFF111111);
-
   static const double _kBottomNavHeight = 60.0;
   static const double _kBottomNavClearance = 84.0;
-
-  // ignore: unused_field
-  static const String _heroSubtitle =
-      'Renaisse redefines streetwear with bold silhouettes and clean essentials.';
 
   bool _isLoading = true;
 
@@ -56,11 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ShopTheLookEntry> _shopTheLookEntries = [];
   List<OccasionTileContent> _occasionTilesContent = [];
   List<FeatureBannerContent> _featureBanners = [];
-  List<PriceTileContent> _priceTiles = [];
-
-  /// "Shop by price" is a 2×2 grid: two tiles per row, two rows.
-  static const int _kPriceTileColumns = 2;
-  static const int _kPriceTileMax = 4;
 
   final ScrollController _scrollController = ScrollController();
 
@@ -93,75 +72,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _exploreLoadingFirst = true;
   bool _exploreLoadingMore = false;
 
-  final List<_ShopTheLookOutfit> _defaultShopTheLookOutfits = const [
-    _ShopTheLookOutfit(
-      imageAsset: 'assets/shop_the_look_outfit_1.jpg',
-      products: [
-        _ShopTheLookProduct(
-          title: 'Black 100% Cotton Full Sleeve Oversized Solid Shirt',
-          price: '₹ 1,899',
-          imageAsset: 'assets/shop_the_look_item_1.jpg',
-        ),
-        _ShopTheLookProduct(
-          title: 'White Balloon Fit Stretch Cargo Pants',
-          price: '₹ 2,199',
-          imageAsset: 'assets/shop_the_look_item_2.jpg',
-        ),
-      ],
-    ),
-    _ShopTheLookOutfit(
-      imageAsset: 'assets/shop_the_look_outfit_2.jpg',
-      products: [
-        _ShopTheLookProduct(
-          title: 'Product title',
-          price: '₹ 20',
-          imageAsset: 'assets/shop_the_look_item_1.jpg',
-        ),
-        _ShopTheLookProduct(
-          title: 'Product title',
-          price: '₹ 20',
-          imageAsset: 'assets/shop_the_look_item_2.jpg',
-        ),
-      ],
-    ),
-    _ShopTheLookOutfit(
-      imageAsset: 'assets/shop_the_look_outfit_3.jpg',
-      products: [
-        _ShopTheLookProduct(
-          title: 'Product title',
-          price: '₹ 20',
-          imageAsset: 'assets/shop_the_look_item_3.jpg',
-        ),
-      ],
-    ),
-    _ShopTheLookOutfit(
-      imageAsset: 'assets/shop_the_look_outfit_4.jpg',
-      products: [
-        _ShopTheLookProduct(
-          title: 'Product title',
-          price: '₹ 20',
-          imageAsset: 'assets/shop_the_look_item_1.jpg',
-        ),
-        _ShopTheLookProduct(
-          title: 'Product title',
-          price: '₹ 20',
-          imageAsset: 'assets/shop_the_look_item_2.jpg',
-        ),
-        _ShopTheLookProduct(
-          title: 'Product title',
-          price: '₹ 20',
-          imageAsset: 'assets/shop_the_look_item_3.jpg',
-        ),
-      ],
-    ),
-  ];
-
   _ShopifyProductItem _mapShopifyProduct(ShopifyProduct product) {
     String? compareAtPrice;
     String? discountLabel;
     if (product.isOnSale) {
       final double comparePrice = product.compareAtPrice!;
-      compareAtPrice = '₹ ${_formatInr(comparePrice)}';
+      compareAtPrice = '₹ ${formatInr(comparePrice)}';
       final int percentOff =
           (((comparePrice - product.price) / comparePrice) * 100).round();
       discountLabel = '-$percentOff%';
@@ -172,28 +88,11 @@ class _HomeScreenState extends State<HomeScreen> {
       id: product.id,
       handle: product.handle,
       title: product.title,
-      price: '₹ ${_formatInr(product.price)}',
+      price: '₹ ${formatInr(product.price)}',
       compareAtPrice: compareAtPrice,
       discountLabel: discountLabel,
       imageUrl: product.primaryImageUrl,
     );
-  }
-
-  String _formatInr(num amount) {
-    final int rounded = amount.round();
-    final bool negative = rounded < 0;
-    String s = rounded.abs().toString();
-    if (s.length <= 3) return (negative ? '-' : '') + s;
-
-    final String last3 = s.substring(s.length - 3);
-    String remaining = s.substring(0, s.length - 3);
-    final List<String> groups = [last3];
-    while (remaining.length > 2) {
-      groups.insert(0, remaining.substring(remaining.length - 2));
-      remaining = remaining.substring(0, remaining.length - 2);
-    }
-    if (remaining.isNotEmpty) groups.insert(0, remaining);
-    return (negative ? '-' : '') + groups.join(',');
   }
 
   final List<_OccasionTile> _defaultOccasionTiles = const [
@@ -238,25 +137,10 @@ class _HomeScreenState extends State<HomeScreen> {
     // ),
   ];
 
-  /// Every uploaded hero banner image, in order; the hero pages through them.
-  List<String> get _heroBannerImageUrls => [
-    for (final banner in _heroBanners)
-      if (banner.imageUrl != null) banner.imageUrl!,
-  ];
-
-  HomeBanner? get _primaryHeroBanner =>
-      _heroBanners.isNotEmpty ? _heroBanners.first : null;
-
-  // ignore: unused_element
-  void _openHeroCta() {
-    final String? url = _primaryHeroBanner?.ctaUrl;
-    if (url == null || url.isEmpty) return;
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } else {
-      _openCollectionByHandle(url, label: _primaryHeroBanner?.ctaLabel);
-    }
-  }
+  /// Every hero banner with an uploaded image, in order; the hero pages
+  /// through them and a tap opens that banner's redirect link.
+  List<HomeBanner> get _heroBannersWithImage =>
+      _heroBanners.where((b) => b.imageUrl != null).toList();
 
   List<_PromoBlockData> get _promoBlocksToDisplay {
     if (_promoBlocksContent.isEmpty) return _defaultPromoBlocks;
@@ -283,7 +167,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<_ShopTheLookOutfit> get _shopTheLookOutfitsToDisplay {
-    if (_shopTheLookEntries.isEmpty) return _defaultShopTheLookOutfits;
+    // Nothing set up in Shopify (or it failed to load): hide the section.
+    if (_shopTheLookEntries.isEmpty) return const [];
     return _shopTheLookEntries
         .where((e) => e.imageUrl != null && e.products.isNotEmpty)
         .map(
@@ -294,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 .map(
                   (p) => _ShopTheLookProduct(
                     title: p.title,
-                    price: '₹ ${_formatInr(p.price)}',
+                    price: '₹ ${formatInr(p.price)}',
                     imageAsset: 'assets/shop_the_look_item_1.jpg',
                     imageUrl: p.primaryImageUrl,
                     product: p,
@@ -374,66 +259,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
-  // ignore: unused_element
-  Widget _shopByPriceSection() {
-    final r = R.of(context);
-    final tiles = _priceTiles.take(_kPriceTileMax).toList();
-    final double gap = r.dp(8);
-    final rows = <Widget>[];
-    for (int i = 0; i < tiles.length; i += _kPriceTileColumns) {
-      rows.add(
-        Padding(
-          padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (int j = 0; j < _kPriceTileColumns; j++) ...[
-                if (j > 0) SizedBox(width: gap),
-                Expanded(
-                  child: i + j < tiles.length
-                      ? _priceTile(tiles[i + j])
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _sliverHeadAsBox('SHOP BY PRICE'),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: r.dp(16)),
-          child: Column(children: rows),
-        ),
-      ],
-    );
-  }
-
-  Widget _priceTile(PriceTileContent tile) {
-    return GestureDetector(
-      onTap: () => _openLink(tile.link),
-      // Full width at the image's own aspect ratio, so text baked into the
-      // artwork ("SHOP UNDER ₹999") is never cropped.
-      child: CachedNetworkImage(
-        imageUrl: tile.imageUrl!,
-        width: double.infinity,
-        fit: BoxFit.fitWidth,
-        placeholder: (_, __) => AspectRatio(
-          aspectRatio: 0.8,
-          child: Container(color: const Color(0xFF555555)),
-        ),
-        errorWidget: (_, __, ___) => AspectRatio(
-          aspectRatio: 0.8,
-          child: Container(color: const Color(0xFF555555)),
-        ),
-      ),
-    );
-  }
-
   /// Opens a metaobject link: a collection handle, a `/collections/...` or
   /// `/products/...` path (full store URLs too), or any other web URL.
   void _openLink(String link, {String? title}) {
@@ -458,7 +283,8 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (url.startsWith('http://') || url.startsWith('https://')) {
       launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } else {
-      _openCollectionByHandle(url, title: name);
+      // A bare collection handle; Shopify handles are lower case.
+      _openCollectionByHandle(url.toLowerCase(), title: name);
     }
   }
 
@@ -490,12 +316,11 @@ class _HomeScreenState extends State<HomeScreen> {
       service.getShopTheLookEntries(),
       service.getOccasionTilesContent(),
       service.getFeatureBanners(),
-      service.getPriceTiles(),
       service.getExploreTabs(),
     ]);
     if (!mounted) return;
 
-    final exploreTabs = results[7] as List<ExploreTabContent>;
+    final exploreTabs = results[6] as List<ExploreTabContent>;
     final List<_ExploreTabDef> newTabDefs = exploreTabs.isEmpty
         ? _defaultExploreTabDefs
         : exploreTabs
@@ -529,7 +354,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _shopTheLookEntries = results[3] as List<ShopTheLookEntry>;
       _occasionTilesContent = results[4] as List<OccasionTileContent>;
       _featureBanners = results[5] as List<FeatureBannerContent>;
-      _priceTiles = results[6] as List<PriceTileContent>;
       _isLoading = false;
     });
     if (keptIndex < 0) _fetchExploreProducts();
@@ -554,8 +378,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<String> get _exploreFilterInputs => [
-    if (_selectedExploreCategoryInput != null) _selectedExploreCategoryInput!,
-    if (_selectedExploreFitInput != null) _selectedExploreFitInput!,
+    ?_selectedExploreCategoryInput,
+    ?_selectedExploreFitInput,
   ];
 
   /// Loads the first page for the current tab and filters. The previous
@@ -692,8 +516,8 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       PageRouteBuilder(
-        pageBuilder: (_, animation, __) => const SearchTabPage(),
-        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+        pageBuilder: (_, animation, _) => const SearchTabPage(),
+        transitionsBuilder: (_, animation, _, child) => FadeTransition(
           opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
           child: child,
         ),
@@ -713,9 +537,9 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _isLoading
               ? _shimmer()
               : Container(
-                  color: bgColor,
+                  color: AppColors.bg,
                   child: RefreshIndicator(
-                    color: primary,
+                    color: AppColors.primary,
                     onRefresh: _fetchAll,
                     child: CustomScrollView(
                       controller: _scrollController,
@@ -726,9 +550,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         SliverToBoxAdapter(child: _exploreCategoriesCarousel()),
                         ..._promoBlockSlivers(_promoBlocksSecondHalf),
                         ..._featureBannerSlivers(),
-                        // if (_priceTiles.isNotEmpty)
-                        //   SliverToBoxAdapter(child: _shopByPriceSection()),
-                        SliverToBoxAdapter(child: _shopTheLookSection()),
+                        if (_shopTheLookOutfitsToDisplay.isNotEmpty)
+                          SliverToBoxAdapter(child: _shopTheLookSection()),
                         SliverToBoxAdapter(child: _shopByOccasionsSection()),
                         SliverToBoxAdapter(child: _exploreCollectionsSection()),
                         const SliverToBoxAdapter(
@@ -804,7 +627,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _heroSection() {
-    // final r = R.of(context); // used by the hidden hero overlay
     return SizedBox(
       height: _fullScreenBannerHeight(context),
       width: double.infinity,
@@ -812,83 +634,6 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _heroBannerImage(),
           Positioned(top: 0, left: 0, right: 0, child: _topBar()),
-          // Hero text overlay (subtitle + CTA) hidden for now.
-          // Positioned(
-          //   left: 0,
-          //   right: 0,
-          //   bottom: r.dp(24),
-          //   child: TweenAnimationBuilder<double>(
-          //     tween: Tween(begin: 0, end: 1),
-          //     duration: const Duration(milliseconds: 700),
-          //     curve: Curves.easeOut,
-          //     builder: (context, value, child) => Opacity(
-          //       opacity: value,
-          //       child: Transform.translate(
-          //         offset: Offset(0, (1 - value) * 16),
-          //         child: child,
-          //       ),
-          //     ),
-          //     child: Column(
-          //       crossAxisAlignment: CrossAxisAlignment.start,
-          //       mainAxisSize: MainAxisSize.min,
-          //       children: [
-          //         Padding(
-          //           padding: EdgeInsets.symmetric(horizontal: r.dp(20)),
-          //           child: Column(
-          //             crossAxisAlignment: CrossAxisAlignment.start,
-          //             mainAxisSize: MainAxisSize.min,
-          //             children: [
-          //               Text(
-          //                 (_primaryHeroBanner?.subtitle.isNotEmpty ?? false)
-          //                     ? _primaryHeroBanner!.subtitle
-          //                     : _heroSubtitle,
-          //                 style: TextStyle(
-          //                   fontFamily: _fBody,
-          //                   fontSize: r.sp(13),
-          //                   color: Colors.white.withOpacity(0.9),
-          //                 ),
-          //               ),
-          //               // Hero CTA hidden for now.
-          //               // SizedBox(height: r.dp(14)),
-          //               // GestureDetector(
-          //               //   onTap: _openHeroCta,
-          //               //   child: Container(
-          //               //     padding: EdgeInsets.symmetric(
-          //               //       horizontal: r.dp(22),
-          //               //       vertical: r.dp(12),
-          //               //     ),
-          //               //     color: Colors.white,
-          //               //     child: Row(
-          //               //       mainAxisSize: MainAxisSize.min,
-          //               //       children: [
-          //               //         Text(
-          //               //           (_primaryHeroBanner?.ctaLabel ?? 'Shop now')
-          //               //               .toUpperCase(),
-          //               //           style: TextStyle(
-          //               //             fontFamily: AppFonts.accent,
-          //               //             color: _onLightBtn,
-          //               //             fontSize: r.sp(13),
-          //               //             fontWeight: FontWeight.w600,
-          //               //             letterSpacing: 2.0,
-          //               //           ),
-          //               //         ),
-          //               //         SizedBox(width: r.dp(6)),
-          //               //         Icon(
-          //               //           Icons.arrow_forward_rounded,
-          //               //           size: r.dp(16),
-          //               //           color: _onLightBtn,
-          //               //         ),
-          //               //       ],
-          //               //     ),
-          //               //   ),
-          //               // ),
-          //             ],
-          //           ),
-          //         ),
-          //       ],
-          //     ),
-          //   ),
-          // ),
         ],
       ),
     );
@@ -906,8 +651,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.center,
                 colors: [
-                  Colors.black.withOpacity(0.28),
-                  Colors.black.withOpacity(0.10),
+                  Colors.black.withValues(alpha: 0.28),
+                  Colors.black.withValues(alpha: 0.10),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.18, 0.38],
@@ -924,8 +669,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.bottomCenter,
                 end: Alignment.center,
                 colors: [
-                  Colors.black.withOpacity(0.60),
-                  Colors.black.withOpacity(0.38),
+                  Colors.black.withValues(alpha: 0.60),
+                  Colors.black.withValues(alpha: 0.38),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.30, 0.58],
@@ -935,10 +680,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     ];
-    if (_heroBannerImageUrls.isNotEmpty) {
+    final banners = _heroBannersWithImage;
+    if (banners.isNotEmpty) {
       return _HeroBannerPager(
-        imageUrls: _heroBannerImageUrls,
+        imageUrls: [for (final b in banners) b.imageUrl!],
         overlays: scrims,
+        onTap: (i) {
+          final link = banners[i].link;
+          if (link != null) _openLink(link, title: banners[i].title);
+        },
       );
     }
     return Stack(
@@ -947,7 +697,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Image.asset(
           'assets/banner.jpeg',
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
+          errorBuilder: (_, _, _) =>
               const ColoredBox(color: Colors.black),
         ),
         ...scrims,
@@ -961,7 +711,7 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: EdgeInsets.fromLTRB(r.dp(16), r.dp(26), r.dp(16), r.dp(12)),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: _tiltedHeading(title, r, color: primary),
+        child: _tiltedHeading(title, r, color: AppColors.primary),
       ),
     );
   }
@@ -1006,7 +756,7 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: EdgeInsets.fromLTRB(r.dp(16), 0, r.dp(16), r.dp(16)),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: _tiltedHeading(title, r, color: primary),
+        child: _tiltedHeading(title, r, color: AppColors.primary),
       ),
     );
   }
@@ -1025,7 +775,7 @@ class _HomeScreenState extends State<HomeScreen> {
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         itemCount: items.length,
-        separatorBuilder: (_, __) => SizedBox(width: r.dp(10)),
+        separatorBuilder: (_, _) => SizedBox(width: r.dp(10)),
         itemBuilder: (_, i) {
           final cat = items[i];
           return _categoryCard(
@@ -1033,9 +783,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? CachedNetworkImage(
                     imageUrl: cat.imageUrl!,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) =>
+                    placeholder: (_, _) =>
                         Container(color: const Color(0xFF555555)),
-                    errorWidget: (_, __, ___) =>
+                    errorWidget: (_, _, _) =>
                         Container(color: const Color(0xFF555555)),
                   )
                 : Container(color: const Color(0xFF555555)),
@@ -1075,7 +825,7 @@ class _HomeScreenState extends State<HomeScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppFonts.accent,
-                color: primary,
+                color: AppColors.primary,
                 fontSize: r.sp(12),
                 letterSpacing: 1.0,
                 fontWeight: FontWeight.w600,
@@ -1117,13 +867,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? CachedNetworkImage(
                           imageUrl: product.imageUrl!,
                           fit: BoxFit.cover,
-                          placeholder: (_, __) => const SizedBox(),
-                          errorWidget: (_, __, ___) => const SizedBox(),
+                          placeholder: (_, _) => const SizedBox(),
+                          errorWidget: (_, _, _) => const SizedBox(),
                         )
                       : Image.asset(
                           product.imageAssetFallback,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const SizedBox(),
+                          errorBuilder: (_, _, _) => const SizedBox(),
                         ),
                 ),
                 if (product.discountLabel != null)
@@ -1139,7 +889,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Text(
                         product.discountLabel!,
                         style: TextStyle(
-                          fontFamily: _fBold,
+                          fontFamily: AppFonts.bold,
                           color: Colors.white,
                           fontSize: r.sp(10),
                           fontWeight: FontWeight.w600,
@@ -1162,9 +912,9 @@ class _HomeScreenState extends State<HomeScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontFamily: _fBody,
+              fontFamily: AppFonts.body,
               fontSize: r.sp(12),
-              color: primary,
+              color: AppColors.primary,
               height: 1.25,
             ),
           ),
@@ -1174,10 +924,10 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 product.price,
                 style: TextStyle(
-                  fontFamily: _fNumber,
+                  fontFamily: AppFonts.number,
                   fontSize: r.sp(13),
                   fontWeight: FontWeight.w600,
-                  color: primary,
+                  color: AppColors.primary,
                 ),
               ),
               if (product.compareAtPrice != null) ...[
@@ -1185,9 +935,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   product.compareAtPrice!,
                   style: TextStyle(
-                    fontFamily: _fNumber,
+                    fontFamily: AppFonts.number,
                     fontSize: r.sp(12),
-                    color: secondaryTxt,
+                    color: AppColors.secondaryText,
                     decoration: TextDecoration.lineThrough,
                   ),
                 ),
@@ -1289,7 +1039,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(r.dp(16), r.dp(28), r.dp(16), 0),
-          child: _tiltedHeading('SHOP YOUR AESTHETICS', r, color: primary),
+          child: _tiltedHeading('SHOP YOUR AESTHETICS', r, color: AppColors.primary),
         ),
         SizedBox(height: r.dp(16)),
         if (pairs.isEmpty)
@@ -1340,16 +1090,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     imageUrl: tile.imageUrl!,
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
-                    placeholder: (_, __) =>
+                    placeholder: (_, _) =>
                         Container(color: const Color(0xFFE0E0E0)),
-                    errorWidget: (_, __, ___) =>
+                    errorWidget: (_, _, _) =>
                         Container(color: const Color(0xFFE0E0E0)),
                   )
                 : Image.asset(
                     tile.imageAsset,
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
-                    errorBuilder: (_, __, ___) =>
+                    errorBuilder: (_, _, _) =>
                         Container(color: const Color(0xFFE0E0E0)),
                   ),
             DecoratedBox(
@@ -1358,8 +1108,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.0),
-                    Colors.black.withOpacity(0.35),
+                    Colors.black.withValues(alpha: 0.0),
+                    Colors.black.withValues(alpha: 0.35),
                   ],
                 ),
               ),
@@ -1493,7 +1243,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: r.dp(24),
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: primary,
+                    color: AppColors.primary,
                   ),
                 ),
               ),
@@ -1534,7 +1284,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: r.dp(20),
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: primary,
+                    color: AppColors.primary,
                   ),
                 ),
               ),
@@ -1547,7 +1297,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _shimmer() {
     final r = R.of(context);
     return Container(
-      color: bgColor,
+      color: AppColors.bg,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -1597,8 +1347,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Text(
           'Nothing here yet.',
           style: TextStyle(
-            fontFamily: _fBody,
-            color: secondaryTxt,
+            fontFamily: AppFonts.body,
+            color: AppColors.secondaryText,
             fontSize: r.sp(14),
           ),
         ),
@@ -1617,11 +1367,14 @@ class _HeroBannerPager extends StatefulWidget {
 
   /// Painted over the images but beneath the page dots.
   final List<Widget> overlays;
+
+  /// Called with the index (into [imageUrls]) of the banner that was tapped.
+  final ValueChanged<int>? onTap;
   const _HeroBannerPager({
     required this.imageUrls,
-    this.interval = const Duration(seconds: 5),
     this.overlays = const [],
-  });
+    this.onTap,
+  }) : interval = const Duration(seconds: 5);
 
   @override
   State<_HeroBannerPager> createState() => _HeroBannerPagerState();
@@ -1686,15 +1439,21 @@ class _HeroBannerPagerState extends State<_HeroBannerPager> {
             setState(() => _page = (i - _loopStart) % count);
             _restartTimer();
           },
-          itemBuilder: (_, i) => CachedNetworkImage(
-            imageUrl: widget.imageUrls[(i - _loopStart) % count],
-            httpHeaders: ShopifyConstants.imageHeaders,
-            fadeInDuration: const Duration(milliseconds: 150),
-            fit: BoxFit.cover,
-            placeholder: (_, __) => const ColoredBox(color: Colors.black),
-            errorWidget: (_, __, ___) =>
-                const ColoredBox(color: Colors.black),
-          ),
+          itemBuilder: (_, i) {
+            final index = (i - _loopStart) % count;
+            return GestureDetector(
+              onTap: widget.onTap == null ? null : () => widget.onTap!(index),
+              child: CachedNetworkImage(
+                imageUrl: widget.imageUrls[index],
+                httpHeaders: ShopifyConstants.imageHeaders,
+                fadeInDuration: const Duration(milliseconds: 150),
+                fit: BoxFit.cover,
+                placeholder: (_, _) => const ColoredBox(color: Colors.black),
+                errorWidget: (_, _, _) =>
+                    const ColoredBox(color: Colors.black),
+              ),
+            );
+          },
         ),
         ...widget.overlays,
         if (count > 1)
@@ -1715,8 +1474,7 @@ class _RotatingPromoImage extends StatefulWidget {
   final Duration interval;
   const _RotatingPromoImage({
     required this.imageUrls,
-    this.interval = const Duration(seconds: 5),
-  });
+  }) : interval = const Duration(seconds: 5);
 
   @override
   State<_RotatingPromoImage> createState() => _RotatingPromoImageState();
@@ -1765,7 +1523,7 @@ class _RotatingPromoImageState extends State<_RotatingPromoImage> {
       switchOutCurve: Curves.easeIn,
       layoutBuilder: (current, previous) => Stack(
         fit: StackFit.expand,
-        children: [...previous, if (current != null) current],
+        children: [...previous, ?current],
       ),
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
@@ -1778,8 +1536,8 @@ class _RotatingPromoImageState extends State<_RotatingPromoImage> {
         key: ValueKey(url),
         imageUrl: url,
         fit: BoxFit.cover,
-        placeholder: (_, __) => Container(color: const Color(0xFF555555)),
-        errorWidget: (_, __, ___) => Container(color: const Color(0xFF555555)),
+        placeholder: (_, _) => Container(color: const Color(0xFF555555)),
+        errorWidget: (_, _, _) => Container(color: const Color(0xFF555555)),
       ),
     );
   }
@@ -1830,7 +1588,7 @@ class _PromoBlockCardState extends State<_PromoBlockCard> {
                   : Image.asset(
                       widget.assetPath ?? 'assets/denim.png',
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
+                      errorBuilder: (_, _, _) =>
                           Container(color: const Color(0xFF555555)),
                     ),
               DecoratedBox(
@@ -1839,9 +1597,9 @@ class _PromoBlockCardState extends State<_PromoBlockCard> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withOpacity(0.45),
-                      Colors.black.withOpacity(0.05),
-                      Colors.black.withOpacity(0.45),
+                      Colors.black.withValues(alpha: 0.45),
+                      Colors.black.withValues(alpha: 0.05),
+                      Colors.black.withValues(alpha: 0.45),
                     ],
                     stops: const [0.0, 0.5, 1.0],
                   ),
@@ -1910,8 +1668,7 @@ class _ShopifyProductItem {
     this.compareAtPrice,
     this.discountLabel,
     this.imageUrl,
-    this.imageAssetFallback = 'assets/collection_cargo_olive.jpg',
-  });
+  }) : imageAssetFallback = 'assets/collection_cargo_olive.jpg';
 }
 
 class _ShopTheLookOutfit {
@@ -1935,8 +1692,7 @@ class _ShopTheLookAutoSlideCard extends StatefulWidget {
     required this.outfits,
     required this.heroHeight,
     required this.productRowHeight,
-    this.interval = const Duration(seconds: 5),
-  });
+  }) : interval = const Duration(seconds: 5);
 
   @override
   State<_ShopTheLookAutoSlideCard> createState() =>
@@ -1985,7 +1741,7 @@ class _ShopTheLookAutoSlideCardState extends State<_ShopTheLookAutoSlideCard> {
       final ImageProvider provider = outfit.imageUrl != null
           ? CachedNetworkImageProvider(outfit.imageUrl!)
           : AssetImage(outfit.imageAsset);
-      precacheImage(provider, context, onError: (_, __) {});
+      precacheImage(provider, context, onError: (_, _) {});
     }
   }
 
@@ -2038,10 +1794,10 @@ class _ShopTheLookAutoSlideCardState extends State<_ShopTheLookAutoSlideCard> {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Dismiss',
-      barrierColor: Colors.black.withOpacity(0.55),
+      barrierColor: Colors.black.withValues(alpha: 0.55),
       transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
-      transitionBuilder: (ctx, anim, _, __) {
+      pageBuilder: (_, _, _) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, anim, _, _) {
         final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
         return ScaleTransition(
           scale: curved,
@@ -2071,7 +1827,7 @@ class _ShopTheLookAutoSlideCardState extends State<_ShopTheLookAutoSlideCard> {
                       content: Text(
                         success
                             ? '${product.title} added to cart'
-                            : 'Failed to add item to cart',
+                            : (CartService.instance.lastError ?? 'Failed to add item to cart'),
                         style: const TextStyle(fontFamily: AppFonts.accent),
                       ),
                       duration: const Duration(seconds: 2),
@@ -2139,15 +1895,15 @@ class _ShopTheLookAutoSlideCardState extends State<_ShopTheLookAutoSlideCard> {
                               alignment: Alignment.topCenter,
                               fadeInDuration: Duration.zero,
                               fadeOutDuration: Duration.zero,
-                              placeholder: (_, __) => const SizedBox.expand(),
-                              errorWidget: (_, __, ___) =>
+                              placeholder: (_, _) => const SizedBox.expand(),
+                              errorWidget: (_, _, _) =>
                                   const SizedBox.expand(),
                             )
                           : Image.asset(
                               outfit.imageAsset,
                               fit: BoxFit.cover,
                               alignment: Alignment.topCenter,
-                              errorBuilder: (_, __, ___) =>
+                              errorBuilder: (_, _, _) =>
                                   const SizedBox.expand(),
                             ),
                     ),
@@ -2200,14 +1956,14 @@ class _ShopTheLookAutoSlideCardState extends State<_ShopTheLookAutoSlideCard> {
                                 ? CachedNetworkImage(
                                     imageUrl: item.imageUrl!,
                                     fit: BoxFit.cover,
-                                    placeholder: (_, __) => const SizedBox(),
-                                    errorWidget: (_, __, ___) =>
+                                    placeholder: (_, _) => const SizedBox(),
+                                    errorWidget: (_, _, _) =>
                                         const SizedBox(),
                                   )
                                 : Image.asset(
                                     item.imageAsset,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
+                                    errorBuilder: (_, _, _) =>
                                         const SizedBox(),
                                   ),
                           ),
@@ -2281,7 +2037,7 @@ class _ShimmerBox extends StatefulWidget {
   final double height;
   final double? width;
   final BorderRadius? borderRadius;
-  const _ShimmerBox({required this.height, this.width, this.borderRadius});
+  const _ShimmerBox({required this.height, this.width}) : borderRadius = null;
 
   @override
   State<_ShimmerBox> createState() => _ShimmerBoxState();
@@ -2399,9 +2155,8 @@ class _AutoScrollHorizontalList extends StatefulWidget {
     required this.itemExtent,
     required this.itemBuilder,
     this.padding = EdgeInsets.zero,
-    this.interval = const Duration(seconds: 5),
-    this.animationDuration = const Duration(milliseconds: 600),
-  });
+  })  : interval = const Duration(seconds: 5),
+        animationDuration = const Duration(milliseconds: 600);
 
   @override
   State<_AutoScrollHorizontalList> createState() =>

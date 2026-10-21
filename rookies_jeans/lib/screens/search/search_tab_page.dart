@@ -2,14 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/models/product_model.dart';
 import 'package:rookies_jeans/screens/products/product_detail_page.dart';
 import 'package:rookies_jeans/screens/search/search_results_page.dart';
 import 'package:rookies_jeans/services/search_history_service.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
-import 'package:rookies_jeans/widget/price_text.dart';
-import 'package:rookies_jeans/widget/wishlist_heart_button.dart';
+import 'package:rookies_jeans/widgets/price_text.dart';
+import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
 
 /// The bottom-nav "Search" tab: a lightweight live-search landing page,
 /// separate from ProductsPage (which is collection browsing only). Typing
@@ -23,14 +23,6 @@ class SearchTabPage extends StatefulWidget {
 }
 
 class _SearchTabPageState extends State<SearchTabPage> {
-  static Color get primary => AppColors.primary;
-  static Color get bgColor => AppColors.bg;
-  static Color get cardColor => AppColors.card;
-  static Color get secondaryTxt => AppColors.secondaryText;
-  static Color get borderColor => AppColors.border;
-
-  static const String _fBody = AppFonts.body;
-
   static const int _kMinLiveSearchLength = 3;
   static const int _kResultCount = 20;
 
@@ -216,7 +208,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
     return AnimatedBuilder(
       animation: ThemeService.instance,
       builder: (context, _) => Scaffold(
-        backgroundColor: bgColor,
+        backgroundColor: AppColors.bg,
         body: SafeArea(
           child: Column(
             children: [
@@ -231,7 +223,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
 
   Widget _topBar() {
     return Container(
-      color: cardColor,
+      color: AppColors.card,
       // A little less room on the left than the right, so the arrow and
       // search bar sit balanced instead of running to the right edge.
       padding: const EdgeInsets.fromLTRB(0, 8, 16, 8),
@@ -239,7 +231,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-            color: primary,
+            color: AppColors.primary,
             onPressed: _goBack,
           ),
           Expanded(child: _searchField()),
@@ -253,8 +245,8 @@ class _SearchTabPageState extends State<SearchTabPage> {
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        color: bgColor,
-        border: Border.all(color: primary.withOpacity(0.15), width: 0.8),
+        color: AppColors.bg,
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15), width: 0.8),
       ),
       child: TextField(
         controller: _searchCtrl,
@@ -263,16 +255,16 @@ class _SearchTabPageState extends State<SearchTabPage> {
         textAlignVertical: TextAlignVertical.center,
         onSubmitted: _openSearchResultsPage,
         onChanged: _onSearchInputChanged,
-        style: TextStyle(fontFamily: _fBody, fontSize: 14, color: primary),
+        style: TextStyle(fontFamily: AppFonts.body, fontSize: 14, color: AppColors.primary),
         decoration: InputDecoration(
           hintText: 'Search products...',
-          hintStyle: TextStyle(fontFamily: _fBody, fontSize: 14, color: secondaryTxt),
+          hintStyle: TextStyle(fontFamily: AppFonts.body, fontSize: 14, color: AppColors.secondaryText),
           border: InputBorder.none,
           isDense: true,
-          prefixIcon: Icon(Icons.search_rounded, size: 18, color: secondaryTxt),
+          prefixIcon: Icon(Icons.search_rounded, size: 18, color: AppColors.secondaryText),
           suffixIcon: _searchCtrl.text.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.close_rounded, size: 16, color: secondaryTxt),
+                  icon: Icon(Icons.close_rounded, size: 16, color: AppColors.secondaryText),
                   onPressed: _clearSearchField,
                 )
               : null,
@@ -310,11 +302,11 @@ class _SearchTabPageState extends State<SearchTabPage> {
               Text(
                 'RECENT SEARCHES',
                 style: TextStyle(
-                  fontFamily: _fBody,
+                  fontFamily: AppFonts.body,
                   fontSize: 12,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.0,
-                  color: secondaryTxt,
+                  color: AppColors.secondaryText,
                 ),
               ),
               const Spacer(),
@@ -323,11 +315,11 @@ class _SearchTabPageState extends State<SearchTabPage> {
                 child: Text(
                   'CLEAR ALL',
                   style: TextStyle(
-                    fontFamily: _fBody,
+                    fontFamily: AppFonts.body,
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.6,
-                    color: primary,
+                    color: AppColors.primary,
                   ),
                 ),
               ),
@@ -338,16 +330,16 @@ class _SearchTabPageState extends State<SearchTabPage> {
           ListTile(
             dense: true,
             contentPadding: const EdgeInsets.only(left: 16, right: 4),
-            leading: Icon(Icons.history_rounded, size: 20, color: secondaryTxt),
+            leading: Icon(Icons.history_rounded, size: 20, color: AppColors.secondaryText),
             title: Text(
               query,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontFamily: _fBody, fontSize: 14, color: primary),
+              style: TextStyle(fontFamily: AppFonts.body, fontSize: 14, color: AppColors.primary),
             ),
             trailing: IconButton(
               tooltip: 'Remove',
-              icon: Icon(Icons.close_rounded, size: 18, color: secondaryTxt),
+              icon: Icon(Icons.close_rounded, size: 18, color: AppColors.secondaryText),
               onPressed: () => SearchHistoryService.instance.remove(query),
             ),
             onTap: () {
@@ -357,7 +349,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
               _openSearchResultsPage(query);
             },
           ),
-          Divider(height: 1, indent: 16, color: borderColor),
+          Divider(height: 1, indent: 16, color: AppColors.border),
         ],
       ],
     );
@@ -372,18 +364,18 @@ class _SearchTabPageState extends State<SearchTabPage> {
             Text(
               'SEARCH PRODUCTS',
               style: TextStyle(
-                fontFamily: _fBody,
+                fontFamily: AppFonts.body,
                 fontSize: 13,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.5,
-                color: primary.withOpacity(0.5),
+                color: AppColors.primary.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(height: 6),
             Text(
               'Start typing to find what you\'re looking for',
               textAlign: TextAlign.center,
-              style: TextStyle(fontFamily: _fBody, fontSize: 12, color: secondaryTxt),
+              style: TextStyle(fontFamily: AppFonts.body, fontSize: 12, color: AppColors.secondaryText),
             ),
           ],
         ),
@@ -400,13 +392,13 @@ class _SearchTabPageState extends State<SearchTabPage> {
               Text(
                 'No results for "$_activeQuery"',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontFamily: _fBody, fontSize: 14, fontWeight: FontWeight.w900, color: primary),
+                style: TextStyle(fontFamily: AppFonts.body, fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.primary),
               ),
               const SizedBox(height: 6),
               Text(
                 'Try a different search term.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontFamily: _fBody, fontSize: 12, color: secondaryTxt),
+                style: TextStyle(fontFamily: AppFonts.body, fontSize: 12, color: AppColors.secondaryText),
               ),
             ],
           ),
@@ -424,7 +416,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
               Text(
                 _error ?? 'Something went wrong.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontFamily: _fBody, fontSize: 13, color: secondaryTxt),
+                style: TextStyle(fontFamily: AppFonts.body, fontSize: 13, color: AppColors.secondaryText),
               ),
               const SizedBox(height: 20),
               OutlinedButton.icon(
@@ -432,11 +424,11 @@ class _SearchTabPageState extends State<SearchTabPage> {
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 label: const Text(
                   'RETRY',
-                  style: TextStyle(fontFamily: _fBody, fontWeight: FontWeight.w900),
+                  style: TextStyle(fontFamily: AppFonts.body, fontWeight: FontWeight.w900),
                 ),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: primary,
-                  side: BorderSide(color: primary),
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(color: AppColors.primary),
                 ),
               ),
             ],
@@ -448,7 +440,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
     return ListView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: 8,
-      itemBuilder: (_, __) => Padding(
+      itemBuilder: (_, _) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Container(height: 60, color: AppColors.fieldFill),
       ),
@@ -460,7 +452,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(4, 4, 4, 90),
       itemCount: _products.length + (_isLoadingMore ? 1 : 0),
-      separatorBuilder: (_, __) => Divider(height: 1, color: borderColor),
+      separatorBuilder: (_, _) => Divider(height: 1, color: AppColors.border),
       itemBuilder: (_, i) {
         if (i >= _products.length) {
           return const Padding(
@@ -485,8 +477,8 @@ class _SearchTabPageState extends State<SearchTabPage> {
               ? CachedNetworkImage(
                   imageUrl: product.primaryImageUrl!,
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(color: AppColors.fieldFill),
-                  errorWidget: (_, __, ___) => Icon(
+                  placeholder: (_, _) => Container(color: AppColors.fieldFill),
+                  errorWidget: (_, _, _) => Icon(
                     Icons.image_not_supported_outlined,
                     color: AppColors.hint,
                   ),
@@ -501,14 +493,14 @@ class _SearchTabPageState extends State<SearchTabPage> {
         product.title,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontFamily: _fBody, fontSize: 13, fontWeight: FontWeight.w600, color: primary),
+        style: TextStyle(fontFamily: AppFonts.body, fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary),
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 4),
         child: _priceBlock(product),
       ),
       // Not over a photo here, so the idle outline uses the text colour.
-      trailing: WishlistHeartButton(product: product, idleColor: primary),
+      trailing: WishlistHeartButton(product: product, idleColor: AppColors.primary),
       onTap: () {
         // Opening a live result counts as using this search.
         SearchHistoryService.instance.add(_activeQuery);
@@ -533,8 +525,8 @@ class _SearchTabPageState extends State<SearchTabPage> {
         currencyCode: product.currencyCode,
         fontSize: 13,
         fontWeight: FontWeight.w700,
-        color: primary,
-        amountFontFamily: _fBody,
+        color: AppColors.primary,
+        amountFontFamily: AppFonts.body,
       );
     }
     return Wrap(
@@ -546,15 +538,15 @@ class _SearchTabPageState extends State<SearchTabPage> {
           currencyCode: product.currencyCode,
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          color: primary,
-          amountFontFamily: _fBody,
+          color: AppColors.primary,
+          amountFontFamily: AppFonts.body,
         ),
         PriceText(
           product.formattedCompareAtPrice,
           currencyCode: product.currencyCode,
           fontSize: 11,
-          color: secondaryTxt,
-          amountFontFamily: _fBody,
+          color: AppColors.secondaryText,
+          amountFontFamily: AppFonts.body,
           decoration: TextDecoration.lineThrough,
         ),
       ],

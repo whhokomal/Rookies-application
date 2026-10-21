@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 
 /// Slanted "sticker" chip: black with a red offset shadow when selected,
 /// white with a black outline and black offset shadow otherwise, with an

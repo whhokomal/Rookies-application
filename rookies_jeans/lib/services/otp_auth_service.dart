@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:rookies_jeans/constant/shopify_constants.dart';
+import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/models/auth_model.dart';
 import 'package:rookies_jeans/services/shopify_auth_service.dart';
 
@@ -182,15 +182,6 @@ class OtpAuthService {
     String action,
     Map<String, dynamic> payload,
   ) async {
-    // The OTP is only useful once the worker can turn it into a login, so
-    // don't text anyone a code until it's deployed.
-    if (ShopifyConstants.otpLoginUrl.contains('YOUR-SUBDOMAIN')) {
-      return (
-        body: const <String, dynamic>{},
-        error: 'Phone login is not set up yet. Please use email & password.',
-      );
-    }
-
     final res = await _post(
       '$_msg91WidgetApi/$action',
       {

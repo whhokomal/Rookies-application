@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/models/address_model.dart';
-import 'package:rookies_jeans/screens/profile/add_edit.dart';
+import 'package:rookies_jeans/screens/profile/address_form_screen.dart';
 import 'package:rookies_jeans/services/address_service.dart';
 
 class AddressBookScreen extends StatefulWidget {
@@ -14,13 +14,6 @@ class AddressBookScreen extends StatefulWidget {
 }
 
 class _AddressBookScreenState extends State<AddressBookScreen> {
-  static Color get _primary     => AppColors.primary;
-  static Color get _onPrimary   => AppColors.onPrimary;
-  static Color get _bg          => AppColors.bg;
-  static Color get _cardColor   => AppColors.card;
-  static Color get _border      => AppColors.border;
-  static Color get _secondaryTx => AppColors.secondaryText;
-  static Color get _hint        => AppColors.hint;
   static const _deleteRed   = AppColors.danger;
 
   static const _fHead = AppFonts.heading;
@@ -98,7 +91,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
               'Cancel',
               style: TextStyle(
                 fontFamily: _fBody,
-                color: _secondaryTx,
+                color: AppColors.secondaryText,
               ),
             ),
           ),
@@ -156,8 +149,8 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
         content: Text(msg,
             style: TextStyle(
                 fontFamily: _fBody,
-                color: isError ? Colors.white : _onPrimary)),
-        backgroundColor: isError ? _deleteRed : _primary,
+                color: isError ? Colors.white : AppColors.onPrimary)),
+        backgroundColor: isError ? _deleteRed : AppColors.primary,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -173,9 +166,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
     return AnimatedBuilder(
       animation: ThemeService.instance,
       builder: (context, _) => Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: _bg,
+        backgroundColor: AppColors.bg,
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
@@ -190,7 +183,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                 child: Icon(
                   Icons.arrow_back_ios_new,
                   size: _s(context, 22).clamp(20.0, 30.0),
-                  color: _primary,
+                  color: AppColors.primary,
                 ),
               ),
               SizedBox(width: _s(context, 10)),
@@ -206,7 +199,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                       height: 1,
                       fontFamily: _fHead,
                       fontStyle: FontStyle.italic,
-                      color: _primary,
+                      color: AppColors.primary,
                     ),
                   ),
                 ),
@@ -223,7 +216,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                 style: TextStyle(
                   fontFamily: _fBold,
                   fontSize: _s(context, 14).clamp(13.0, 18.0),
-                  color: _primary,
+                  color: AppColors.primary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -238,7 +231,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
 
           if (svc.isLoading) {
             return Center(
-              child: CircularProgressIndicator(color: _primary),
+              child: CircularProgressIndicator(color: AppColors.primary),
             );
           }
 
@@ -263,7 +256,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                       isPickMode ? _s(context, 100) : pad,
                     ),
                     itemCount: addresses.length + (isPickMode ? 1 : 0),
-                    separatorBuilder: (_, __) => SizedBox(height: _s(context, 10)),
+                    separatorBuilder: (_, _) => SizedBox(height: _s(context, 10)),
                     itemBuilder: (_, i) {
                       if (isPickMode && i == addresses.length) {
                         return _addNewTile();
@@ -276,9 +269,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
               if (_isSettingDefault)
                 Positioned.fill(
                   child: ColoredBox(
-                    color: _bg.withOpacity(0.6),
+                    color: AppColors.bg.withValues(alpha: 0.6),
                     child: Center(
-                      child: CircularProgressIndicator(color: _primary),
+                      child: CircularProgressIndicator(color: AppColors.primary),
                     ),
                   ),
                 ),
@@ -289,15 +282,15 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
       bottomNavigationBar: widget.pickMode
           ? AnimatedBuilder(
               animation: AddressService.instance,
-              builder: (_, __) {
+              builder: (_, _) {
                 final canConfirm = _selectedId != null &&
                     AddressService.instance.addresses.isNotEmpty;
                 return Container(
                   padding: EdgeInsets.fromLTRB(
                       _s(context, 16), _s(context, 12), _s(context, 16), _s(context, 16)),
                   decoration: BoxDecoration(
-                    color: _cardColor,
-                    border: Border(top: BorderSide(color: _border)),
+                    color: AppColors.card,
+                    border: Border(top: BorderSide(color: AppColors.border)),
                   ),
                   child: SafeArea(
                     top: false,
@@ -311,9 +304,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                           child: ElevatedButton(
                             onPressed: canConfirm ? _confirmPick : null,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _primary,
-                              foregroundColor: _onPrimary,
-                              disabledBackgroundColor: _border,
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: AppColors.onPrimary,
+                              disabledBackgroundColor: AppColors.border,
                               elevation: 0,
                               shape: AppShapes.button,
                             ),
@@ -344,9 +337,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
-        color: _cardColor,
+        color: AppColors.card,
         border: Border.all(
-          color: isSelected ? _primary : _border,
+          color: isSelected ? AppColors.primary : AppColors.border,
           width: isSelected ? 1.8 : 0.8,
         ),
       ),
@@ -367,7 +360,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded,
                     size: _s(context, 20).clamp(18.0, 26.0),
-                    color: isSelected ? _primary : _hint,
+                    color: isSelected ? AppColors.primary : AppColors.hint,
                   ),
                 )
               else
@@ -378,7 +371,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                         ? Icons.home_rounded
                         : Icons.location_on_outlined,
                     size: _s(context, 20).clamp(18.0, 26.0),
-                    color: address.isDefault ? _primary : _secondaryTx,
+                    color: address.isDefault ? AppColors.primary : AppColors.secondaryText,
                   ),
                 ),
               Expanded(
@@ -395,7 +388,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                               fontFamily: _fBold,
                               fontSize: _s(context, 13).clamp(12.0, 18.0),
                               fontWeight: FontWeight.w700,
-                              color: _primary,
+                              color: AppColors.primary,
                             ),
                           ),
                         ),
@@ -404,14 +397,14 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                             margin: EdgeInsets.only(left: _s(context, 8)),
                             padding: EdgeInsets.symmetric(
                                 horizontal: _s(context, 7), vertical: _s(context, 2)),
-                            color: _primary.withOpacity(0.1),
+                            color: AppColors.primary.withValues(alpha: 0.1),
                             child: Text(
                               'DEFAULT',
                               style: TextStyle(
                                 fontFamily: _fBold,
                                 fontSize: _s(context, 9).clamp(8.0, 12.0),
                                 fontWeight: FontWeight.w700,
-                                color: _primary,
+                                color: AppColors.primary,
                                 letterSpacing: 0.5,
                               ),
                             ),
@@ -424,7 +417,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                       style: TextStyle(
                         fontFamily: _fBody,
                         fontSize: _s(context, 12).clamp(11.0, 16.0),
-                        color: _secondaryTx,
+                        color: AppColors.secondaryText,
                         height: 1.5,
                       ),
                     ),
@@ -435,7 +428,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                         style: TextStyle(
                           fontFamily: _fBody,
                           fontSize: _s(context, 12).clamp(11.0, 16.0),
-                          color: _secondaryTx,
+                          color: AppColors.secondaryText,
                         ),
                       ),
                     ],
@@ -449,13 +442,13 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                             _actionButton(
                               label: 'Set Default',
                               icon: Icons.check_circle_outline_rounded,
-                              color: _primary,
+                              color: AppColors.primary,
                               onTap: () => _setDefault(address),
                             ),
                           _actionButton(
                             label: 'Edit',
                             icon: Icons.edit_outlined,
-                            color: _secondaryTx,
+                            color: AppColors.secondaryText,
                             onTap: () => _openEditAddress(address),
                           ),
                           _actionButton(
@@ -508,11 +501,11 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
         child: Container(
           padding: EdgeInsets.symmetric(
               horizontal: _s(context, 14), vertical: _s(context, 16)),
-          color: _cardColor,
+          color: AppColors.card,
           child: Row(
             children: [
               Icon(Icons.add_location_alt_outlined,
-                  size: _s(context, 20).clamp(18.0, 26.0), color: _primary),
+                  size: _s(context, 20).clamp(18.0, 26.0), color: AppColors.primary),
               SizedBox(width: _s(context, 10)),
               Flexible(
                 child: Text(
@@ -521,14 +514,14 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                     fontFamily: _fBold,
                     fontSize: _s(context, 13).clamp(12.0, 18.0),
                     fontWeight: FontWeight.w600,
-                    color: _primary,
+                    color: AppColors.primary,
                   ),
                 ),
               ),
               const Spacer(),
               Icon(Icons.chevron_right_rounded,
                   size: _s(context, 18).clamp(16.0, 24.0),
-                  color: _hint),
+                  color: AppColors.hint),
             ],
           ),
         ),
@@ -542,7 +535,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
             children: [
               Icon(Icons.location_off_outlined,
                   size: _s(context, 52).clamp(44.0, 72.0),
-                  color: _hint),
+                  color: AppColors.hint),
               SizedBox(height: _s(context, 14)),
               Text(
                 'No saved addresses',
@@ -551,7 +544,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                   fontFamily: _fHead,
                   fontSize: _s(context, 20).clamp(18.0, 28.0),
                   fontWeight: FontWeight.w500,
-                  color: _primary,
+                  color: AppColors.primary,
                 ),
               ),
               SizedBox(height: _s(context, 6)),
@@ -563,7 +556,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                 style: TextStyle(
                   fontFamily: _fBody,
                   fontSize: _s(context, 12).clamp(11.0, 16.0),
-                  color: _secondaryTx,
+                  color: AppColors.secondaryText,
                 ),
               ),
               SizedBox(height: _s(context, 24)),
@@ -581,8 +574,8 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _primary,
-                    foregroundColor: _onPrimary,
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
                     elevation: 0,
                     shape: AppShapes.button,
                     padding: EdgeInsets.symmetric(horizontal: _s(context, 24)),
@@ -602,7 +595,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
             children: [
               Icon(Icons.wifi_off_rounded,
                   size: _s(context, 48).clamp(40.0, 66.0),
-                  color: _hint),
+                  color: AppColors.hint),
               SizedBox(height: _s(context, 12)),
               Text(
                 error,
@@ -610,15 +603,15 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                 style: TextStyle(
                   fontFamily: _fBody,
                   fontSize: _s(context, 13).clamp(12.0, 17.0),
-                  color: _secondaryTx,
+                  color: AppColors.secondaryText,
                 ),
               ),
               SizedBox(height: _s(context, 16)),
               ElevatedButton(
                 onPressed: () => AddressService.instance.fetchAddresses(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _primary,
-                  foregroundColor: _onPrimary,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
                   elevation: 0,
                   shape: AppShapes.button,
                 ),

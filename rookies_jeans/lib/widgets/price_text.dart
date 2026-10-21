@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rookies_jeans/constant/shopify_constants.dart';
+import 'package:rookies_jeans/constants/shopify_constants.dart';
 
 class PriceText extends StatelessWidget {
   final String amount;

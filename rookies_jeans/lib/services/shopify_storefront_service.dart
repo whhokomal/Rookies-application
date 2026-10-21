@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:rookies_jeans/constant/shopify_api.dart';
-import 'package:rookies_jeans/constant/shopify_constants.dart';
+import 'package:rookies_jeans/services/shopify_api.dart';
+import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/models/product_detail_model.dart';
 import 'package:rookies_jeans/models/product_model.dart';
 import 'package:rookies_jeans/models/banner_model.dart';
@@ -50,10 +50,12 @@ class ShopifyStorefrontService {
   ShopifyStorefrontService._();
   static final ShopifyStorefrontService instance = ShopifyStorefrontService._();
 
-  final Map<String, dynamic> _cache = {};
-  final Map<String, Future<dynamic>> _inFlight = {};
+  /// How long a cached result is reused before it is fetched again, so
+  /// prices, stock and home content refresh while the app stays open.
+  static const Duration _cacheTtl = Duration(minutes: 10);
 
-  String? _cartId;
+  final Map<String, ({Object? value, DateTime at})> _cache = {};
+  final Map<String, Future<({Object? value, bool failed})>> _inFlight = {};
 
   void clearCache() {
     _cache.clear();
@@ -62,27 +64,42 @@ class ShopifyStorefrontService {
 
   void _log(String msg) => ShopifyGraphQL.log('ShopifyStorefrontService', msg);
 
+  /// Returns the cached result for [cacheKey], or runs [fetcher]. Results
+  /// produced while a Shopify request failed (the fetchers then return an
+  /// empty list / null / fallback content) are returned but not cached, so
+  /// the next visit tries again instead of staying empty all session.
   Future<T> _cachedFetch<T>(
     String cacheKey,
     Future<T> Function() fetcher,
   ) async {
-    if (_cache.containsKey(cacheKey)) {
-      _log('cache HIT: $cacheKey');
-      return _cache[cacheKey] as T;
+    final cached = _cache[cacheKey];
+    if (cached != null) {
+      if (DateTime.now().difference(cached.at) < _cacheTtl) {
+        _log('cache HIT: $cacheKey');
+        return cached.value as T;
+      }
+      _cache.remove(cacheKey);
     }
 
     if (_inFlight.containsKey(cacheKey)) {
       _log('in-flight HIT: $cacheKey');
-      return (await _inFlight[cacheKey]) as T;
+      final inFlight = await _inFlight[cacheKey]!;
+      // Let an enclosing fetch know this result came from a failed request.
+      if (inFlight.failed) ShopifyGraphQL.reportFailure();
+      return inFlight.value as T;
     }
 
-    final future = fetcher();
+    final future = ShopifyGraphQL.trackFailures<Object?>(fetcher);
     _inFlight[cacheKey] = future;
 
     try {
       final result = await future;
-      _cache[cacheKey] = result;
-      return result;
+      if (result.failed) {
+        _log('not caching $cacheKey (request failed)');
+      } else {
+        _cache[cacheKey] = (value: result.value, at: DateTime.now());
+      }
+      return result.value as T;
     } finally {
       _inFlight.remove(cacheKey);
     }
@@ -124,7 +141,6 @@ class ShopifyStorefrontService {
       getShopTheLookEntries(),
       getOccasionTilesContent(),
       getFeatureBanners(),
-      getPriceTiles(),
       explore,
     ]);
   }
@@ -206,7 +222,7 @@ class ShopifyStorefrontService {
               handle
               priceRange { minVariantPrice { amount currencyCode } }
               compareAtPriceRange { minVariantPrice { amount currencyCode } }
-              images(first: 10) { edges { node { url altText } } }
+              images(first: 10) { edges { node { url(transform: {maxWidth: 800}) altText } } }
               options {
                 name
                 values
@@ -309,136 +325,6 @@ class ShopifyStorefrontService {
     }
   }
 
-  Future<bool> addProductToCart(ShopifyProduct product, {int quantity = 1}) async {
-    try {
-      if (product.variants.isEmpty) {
-        _log('addProductToCart: no variants found for ${product.title}');
-        return false;
-      }
-
-      final variantId = product.variants.first.id;
-
-      if (_cartId == null) {
-        _cartId = await _createCart();
-        if (_cartId == null) return false;
-      }
-
-      final result = await _addCartLine(
-        cartId: _cartId!,
-        merchandiseId: variantId,
-        quantity: quantity,
-      );
-
-      return result;
-    } catch (e) {
-      _log('addProductToCart EXCEPTION: $e');
-      return false;
-    }
-  }
-
-  Future<String?> _createCart() async {
-    const String mutation = r'''
-    mutation cartCreate($input: CartInput) {
-      cartCreate(input: $input) {
-        cart {
-          id
-        }
-        userErrors {
-          field
-          message
-        }
-      }
-    }
-    ''';
-
-    try {
-      final res = await ShopifyGraphQL.post(
-        mutation,
-        variables: {
-          'input': {}
-        },
-      );
-
-      _log('cartCreate → ${res.statusCode}');
-      final decoded = res.body;
-
-      if (decoded['errors'] != null) {
-        _log('cartCreate errors: ${decoded['errors']}');
-        return null;
-      }
-
-      final data = decoded['data']?['cartCreate'];
-      final userErrors = (data?['userErrors'] as List?) ?? [];
-      if (userErrors.isNotEmpty) {
-        _log('cartCreate userErrors: $userErrors');
-        return null;
-      }
-
-      return data?['cart']?['id'] as String?;
-    } catch (e) {
-      _log('_createCart EXCEPTION: $e');
-      return null;
-    }
-  }
-
-  Future<bool> _addCartLine({
-    required String cartId,
-    required String merchandiseId,
-    required int quantity,
-  }) async {
-    const String mutation = r'''
-  mutation cartLinesAdd($cartId: ID!, $lines: [CartLineInput!]!) {
-    cartLinesAdd(cartId: $cartId, lines: $lines) {
-      cart {
-        id
-        totalQuantity
-      }
-      userErrors {
-        field
-        message
-      }
-    }
-  }
-  ''';
-
-    try {
-      final res = await ShopifyGraphQL.post(
-        mutation,
-        variables: {
-          'cartId': cartId,
-          'lines': [
-            {
-              'merchandiseId': merchandiseId,
-              'quantity': quantity,
-            }
-          ],
-        },
-      );
-
-      _log('cartLinesAdd → ${res.statusCode}');
-      final decoded = res.body;
-
-      if (decoded['errors'] != null) {
-        _log('cartLinesAdd errors: ${decoded['errors']}');
-        return false;
-      }
-
-      final data = decoded['data']?['cartLinesAdd'] as Map<String, dynamic>?;
-
-      final userErrors = (data?['userErrors'] as List?) ?? [];
-      if (userErrors.isNotEmpty) {
-        _log('cartLinesAdd userErrors: $userErrors');
-        return false;
-      }
-
-      final cart = data?['cart'];
-      return cart != null;
-    } catch (e) {
-      _log('_addCartLine EXCEPTION: $e');
-      return false;
-    }
-  }
-
   Future<ShopifyProductDetail?> getProductByHandle(String handle) =>
       _cachedFetch(
         'product:$handle',
@@ -456,7 +342,7 @@ query getProduct($handle: String!, $identifiers: [HasMetafieldsIdentifier!]!) {
     collections(first: 10) { edges { node { id } } }
     priceRange { minVariantPrice { amount currencyCode } }
     compareAtPriceRange { minVariantPrice { amount currencyCode } }
-    images(first: 10) { edges { node { url altText } } }
+    images(first: 10) { edges { node { url(transform: {maxWidth: 1600}) altText } } }
     options {
   name
   values
@@ -464,7 +350,7 @@ query getProduct($handle: String!, $identifiers: [HasMetafieldsIdentifier!]!) {
     name
     swatch {
       color
-      image { previewImage { url } }
+      image { previewImage { url(transform: {maxWidth: 200}) } }
     }
   }
 }
@@ -584,7 +470,7 @@ for (final e in rawVariantEdges) {
 
   /// Batches a lightweight fetch (title, image, price, options/variants)
   /// for several products by handle in a single aliased GraphQL request —
-  /// same pattern as [_fetchCollectionTiles] below.
+  /// aliased per handle.
   Future<List<ShopifyProduct>> _fetchProductsByHandles(
     List<String> handles,
   ) async {
@@ -597,7 +483,7 @@ for (final e in rawVariantEdges) {
           '    priceRange { minVariantPrice { amount currencyCode } }\n');
       buffer.write(
           '    compareAtPriceRange { minVariantPrice { amount currencyCode } }\n');
-      buffer.write('    images(first: 1) { edges { node { url altText } } }\n');
+      buffer.write('    images(first: 1) { edges { node { url(transform: {maxWidth: 800}) altText } } }\n');
       buffer.write(
           '    options { name values optionValues { name swatch { color } } }\n');
       buffer.write('    variants(first: 10) {\n');
@@ -632,101 +518,6 @@ for (final e in rawVariantEdges) {
     }
   }
 
-  Future<List<ShopifyCollection>> getLatestDropCollections() => _cachedFetch(
-        'latestDropCollections',
-        () => _fetchCollectionTiles(
-          ShopifyConstants.latestDropCollections,
-          'latestDropCollections',
-        ),
-      );
-
-  Future<List<ShopifyCollection>> getOurCollectionTiles() => _cachedFetch(
-        'ourCollectionTiles',
-        () => _fetchCollectionTiles(
-          ShopifyConstants.ourCollectionTiles,
-          'ourCollectionTiles',
-        ),
-      );
-
-  Future<List<ShopifyCollection>> getExploreCategories() => _cachedFetch(
-        'exploreCategories',
-        () => _fetchCollectionTiles(
-          ShopifyConstants.exploreCategories,
-          'exploreCategories',
-        ),
-      );
-
-  Future<List<ShopifyCollection>> _fetchCollectionTiles(
-    List<Map<String, String>> tiles,
-    String queryName,
-  ) async {
-    final buffer = StringBuffer('query $queryName {\n');
-    for (int i = 0; i < tiles.length; i++) {
-      buffer.write('  c$i: collectionByHandle(handle: "${tiles[i]['handle']}") {\n');
-      buffer.write('    id title handle\n');
-      buffer.write('    image { url altText }\n');
-      buffer.write('  }\n');
-    }
-    buffer.write('}');
-
-    try {
-      final res = await ShopifyGraphQL.post(buffer.toString());
-      _log('$queryName → ${res.statusCode}');
-      if (res.errors != null || res.data == null) {
-        _log('$queryName errors: ${res.errors}');
-        return [];
-      }
-      final data = res.data!;
-      final List<ShopifyCollection> result = [];
-      for (int i = 0; i < tiles.length; i++) {
-        final c = data['c$i'];
-        if (c != null) {
-          result.add(ShopifyCollection.fromJson(
-            c as Map<String, dynamic>,
-            label: tiles[i]['label']!,
-          ));
-        } else {
-          _log('$queryName: no collection for handle "${tiles[i]['handle']}"');
-        }
-      }
-      return result;
-    } catch (e) {
-      _log('$queryName EXCEPTION: $e');
-      return [];
-    }
-  }
-
-  Future<BalloonBannerData?> getBalloonBanner() =>
-      _cachedFetch('balloonBanner', _fetchBalloonBanner);
-
-  Future<BalloonBannerData?> _fetchBalloonBanner() async {
-    const String query = r'''
-      query getBalloonBanner {
-        collection: collectionByHandle(handle: "balloonfit-cargo") {
-          title description
-          image { url }
-        }
-      }
-    ''';
-
-    try {
-      final res = await ShopifyGraphQL.post(query);
-      _log('getBalloonBanner → ${res.statusCode}');
-      final decoded = res.body;
-      if (decoded['errors'] != null || decoded['data'] == null) return null;
-      final c = decoded['data']['collection'];
-      if (c == null) return null;
-      return BalloonBannerData(
-        title: (c['title'] as String? ?? 'BALLOON FIT CARGO PANTS').toUpperCase(),
-        description: c['description'] as String? ?? '',
-        imageUrl: c['image']?['url'] as String?,
-      );
-    } catch (e) {
-      _log('getBalloonBanner EXCEPTION: $e');
-      return null;
-    }
-  }
-
   Future<List<HomeBanner>> getHomeBanners() =>
       _cachedFetch('homeBanners', _fetchHomeBanners);
 
@@ -740,7 +531,7 @@ for (final e in rawVariantEdges) {
               fields {
                 key value
                 reference {
-                  ... on MediaImage { image { url } }
+                  ... on MediaImage { image { url(transform: {maxWidth: 1440}) } }
                 }
               }
             }
@@ -771,80 +562,6 @@ for (final e in rawVariantEdges) {
       _log('getHomeBanners EXCEPTION: $e');
       return _staticBanners();
     }
-  }
-
-  Future<List<ShopifyCollection>> fetchCollectionsByHandles(
-    List<Map<String, String>> items) async {
-    final buffer = StringBuffer('query fetchCollections {\n');
-    for (int i = 0; i < items.length; i++) {
-      buffer.write('  c$i: collectionByHandle(handle: "${items[i]['handle']}") {\n');
-      buffer.write('    id title handle\n');
-      buffer.write('    image { url altText }\n');
-      buffer.write('    products(first: 1) {\n');
-      buffer.write('      edges { node { images(first: 1) { edges { node { url } } } } }\n');
-      buffer.write('    }\n');
-      buffer.write('  }\n');
-    }
-    buffer.write('}');
-
-    try {
-      final res = await ShopifyGraphQL.post(buffer.toString());
-      _log('fetchCollectionsByHandles → ${res.statusCode}');
-      final decoded = res.body;
-      if (decoded['errors'] != null || decoded['data'] == null) return [];
-      final data = decoded['data'] as Map<String, dynamic>;
-      final List<ShopifyCollection> result = [];
-      for (int i = 0; i < items.length; i++) {
-        final c = data['c$i'];
-        if (c == null) continue;
-
-        String? imageUrl = c['image']?['url'] as String?;
-        if (imageUrl == null) {
-          final edges = c['products']?['edges'] as List?;
-          if (edges != null && edges.isNotEmpty) {
-            final imgEdges = edges[0]['node']['images']['edges'] as List?;
-            if (imgEdges != null && imgEdges.isNotEmpty) {
-              imageUrl = imgEdges[0]['node']['url'] as String?;
-            }
-          }
-        }
-
-        result.add(ShopifyCollection(
-          id: c['id'] as String,
-          title: c['title'] as String,
-          handle: c['handle'] as String,
-          imageUrl: imageUrl,
-          label: items[i]['label']!,
-        ));
-      }
-      return result;
-    } catch (e) {
-      _log('fetchCollectionsByHandles EXCEPTION: $e');
-      return [];
-    }
-  }
-
-  Future<List<ShopifyProduct>> searchProducts(
-    String query, {
-    int first = 20,
-  }) =>
-      _cachedFetch(
-        'search:${query.toLowerCase()}:$first',
-        () => _fetchSearchProducts(query, first: first),
-      );
-
-  /// Scopes the search to the product title instead of Shopify's default
-  /// cross-field match (title, tags, product type, vendor, description),
-  /// which otherwise surfaces unrelated items — e.g. a "shirt" search
-  /// returning polo tees tagged/categorized as "Shirts" in the catalog.
-  String _titleScopedQuery(String raw) {
-    final words = raw
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .map((w) => w.replaceAll('"', ''));
-    if (words.isEmpty) return raw;
-    return words.map((w) => 'title:*$w*').join(' AND ');
   }
 
   Future<PaginatedProductsResponse> searchProductsPaginated(
@@ -976,7 +693,7 @@ for (final e in rawVariantEdges) {
               tags
               priceRange { minVariantPrice { amount currencyCode } }
               compareAtPriceRange { minVariantPrice { amount currencyCode } }
-              images(first: 2) { edges { node { url altText } } }
+              images(first: 2) { edges { node { url(transform: {maxWidth: 800}) altText } } }
               options {
                 name
                 values
@@ -1098,81 +815,55 @@ for (final e in rawVariantEdges) {
     }
   }
 
-  Future<List<ShopifyProduct>> _fetchSearchProducts(
-    String query, {
-    int first = 20,
-  }) async {
-    const String gqlQuery = r'''
-    query searchProducts($query: String!, $first: Int!) {
-      products(query: $query, first: $first) {
-        edges {
-          node {
-            id
-            title
-            handle
-            priceRange { minVariantPrice { amount currencyCode } }
-            compareAtPriceRange { minVariantPrice { amount currencyCode } }
-            images(first: 2) { edges { node { url altText } } }
-            options {
-              name
-              values
-              optionValues { name swatch { color } }
-            }
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  title
-                  availableForSale
-                  selectedOptions { name value }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    ''';
-
-    try {
-      final res = await ShopifyGraphQL.post(
-        gqlQuery,
-        variables: {
-          'query': _titleScopedQuery(query),
-          'first': first,
-        },
-      );
-
-      _log('searchProducts [$query] → ${res.statusCode}');
-      final decoded = res.body;
-
-      if (decoded['errors'] != null || decoded['data'] == null) {
-        _log('searchProducts errors: ${decoded['errors']}');
-        return [];
-      }
-
-      final edges =
-          (decoded['data']?['products']?['edges'] as List?) ?? [];
-
-      return edges
-          .map((e) =>
-              ShopifyProduct.fromJson(e['node'] as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
-      _log('searchProducts EXCEPTION: $e');
-      return [];
-    }
-  }
-
   List<HomeBanner> _staticBanners() => [
         const HomeBanner(
           id: 'static_1',
           imageUrl: null,
           title: 'DEFINE\nYOUR\nVIBE.',
           subtitle: 'NEW COLLECTION',
-          ctaLabel: 'SHOP NOW',
         ),
       ];
+
+  /// Banners for the Collections page (`collections_banner` metaobjects,
+  /// "Collections Banner" in Shopify), separate from Home's hero banners.
+  Future<List<HomeBanner>> getCollectionsBanners() =>
+      _cachedFetch('collectionsBanners', _fetchCollectionsBanners);
+
+  Future<List<HomeBanner>> _fetchCollectionsBanners() async {
+    const String query = r'''
+      query getCollectionsBanners {
+        metaobjects(type: "collections_banner", first: 20) {
+          edges {
+            node {
+              id
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) width height } } } }
+              link: field(key: "link") { value }
+              sort_order: field(key: "sort_order") { value }
+            }
+          }
+        }
+      }
+    ''';
+
+    try {
+      final res = await ShopifyGraphQL.post(query);
+      _log('getCollectionsBanners → ${res.statusCode}');
+      if (res.hasErrors || res.data == null) return [];
+
+      final nodes = ((res.data!['metaobjects']['edges'] as List?) ?? [])
+          .map((e) => e['node'] as Map<String, dynamic>)
+          .toList();
+      int order(Map<String, dynamic> n) =>
+          int.tryParse(n['sort_order']?['value']?.toString() ?? '') ?? 0;
+      return _sortedStable(nodes, order)
+          .map(HomeBanner.fromCollectionsBannerJson)
+          .where((b) => b.imageUrl != null)
+          .toList();
+    } catch (e) {
+      _log('getCollectionsBanners EXCEPTION: $e');
+      return [];
+    }
+  }
 
   Future<List<PromoBlockContent>> getPromoBlocks() =>
       _cachedFetch('promoBlocks', _fetchPromoBlocks);
@@ -1184,7 +875,7 @@ for (final e in rawVariantEdges) {
           edges {
             node {
               id
-              image: field(key: "image") { reference { ... on MediaImage { image { url } } } }
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
               label: field(key: "label") { value }
               button_label: field(key: "button_label") { value }
               collection_handle: field(key: "collection_handle") { value }
@@ -1234,7 +925,7 @@ for (final e in rawVariantEdges) {
           edges {
             node {
               id
-              image: field(key: "image") { reference { ... on MediaImage { image { url } } } }
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
               label: field(key: "label") { value }
               button_label: field(key: "button_label") { value }
               link: field(key: "link") { value }
@@ -1263,43 +954,6 @@ for (final e in rawVariantEdges) {
     }
   }
 
-  Future<List<PriceTileContent>> getPriceTiles() =>
-      _cachedFetch('priceTiles', _fetchPriceTiles);
-
-  Future<List<PriceTileContent>> _fetchPriceTiles() async {
-    const String query = r'''
-      query getPriceTiles {
-        metaobjects(type: "price_tile", first: 20, sortKey: "id") {
-          edges {
-            node {
-              id
-              image: field(key: "image") { reference { ... on MediaImage { image { url } } } }
-              link: field(key: "link") { value }
-              sort_order: field(key: "sort_order") { value }
-            }
-          }
-        }
-      }
-    ''';
-
-    try {
-      final res = await ShopifyGraphQL.post(query);
-      _log('getPriceTiles → ${res.statusCode}');
-      if (res.hasErrors || res.data == null) return [];
-
-      final edges = (res.data!['metaobjects']['edges'] as List?) ?? [];
-      final tiles = edges
-          .map((e) => PriceTileContent.fromMetaobjectJson(
-              e['node'] as Map<String, dynamic>))
-          .where((t) => t.imageUrl != null)
-          .toList();
-      return _sortedStable(tiles, (t) => t.sortOrder);
-    } catch (e) {
-      _log('getPriceTiles EXCEPTION: $e');
-      return [];
-    }
-  }
-
   Future<List<ShopTheLookEntry>> getShopTheLookEntries() =>
       _cachedFetch('shopTheLookEntries', _fetchShopTheLookEntries);
 
@@ -1310,7 +964,7 @@ for (final e in rawVariantEdges) {
           edges {
             node {
               id
-              image: field(key: "image") { reference { ... on MediaImage { image { url } } } }
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
               sort_order: field(key: "sort_order") { value }
               products: field(key: "products") {
                 references(first: 6) {
@@ -1322,7 +976,7 @@ for (final e in rawVariantEdges) {
                         handle
                         priceRange { minVariantPrice { amount currencyCode } }
                         compareAtPriceRange { minVariantPrice { amount currencyCode } }
-                        images(first: 4) { edges { node { url altText } } }
+                        images(first: 4) { edges { node { url(transform: {maxWidth: 800}) altText } } }
                         options { name values optionValues { name swatch { color } } }
                         variants(first: 10) {
                           edges { node { id title availableForSale selectedOptions { name value } } }
@@ -1366,7 +1020,7 @@ for (final e in rawVariantEdges) {
           edges {
             node {
               id
-              image: field(key: "image") { reference { ... on MediaImage { image { url } } } }
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
               label: field(key: "label") { value }
               collection_handle: field(key: "collection_handle") { value }
               sort_order: field(key: "sort_order") { value }
@@ -1404,7 +1058,7 @@ for (final e in rawVariantEdges) {
           edges {
             node {
               id
-              image: field(key: "image") { reference { ... on MediaImage { image { url } } } }
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
               label: field(key: "label") { value }
               collection_handle: field(key: "collection_handle") { value }
               section: field(key: "section") { value }
@@ -1471,19 +1125,6 @@ for (final e in rawVariantEdges) {
     }
   }
 
-  /// Image for the top banner of a collection's product list, in order:
-  /// a `product_page_banner` metaobject entry for [handle], the collection's
-  /// `custom.app_banner_image` metafield, then the collection's own image.
-  /// Null when none exist.
-  Future<String?> getCollectionBannerUrl(String handle) => _cachedFetch(
-        'collectionBanner:$handle',
-        () async {
-          final banners = await getProductPageBanners();
-          return banners[_normalizeHandle(handle)] ??
-              await _fetchCollectionBannerUrl(handle);
-        },
-      );
-
   /// All `product_page_banner` entries as collection handle → image URL.
   Future<Map<String, String>> getProductPageBanners() =>
       _cachedFetch('productPageBanners', _fetchProductPageBanners);
@@ -1495,7 +1136,7 @@ for (final e in rawVariantEdges) {
           edges {
             node {
               collection_handle: field(key: "collection_handle") { value }
-              image: field(key: "image") { reference { ... on MediaImage { image { url } } } }
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
             }
           }
         }
@@ -1532,37 +1173,6 @@ for (final e in rawVariantEdges) {
     return value.split(RegExp(r'[/?#]')).first.trim().toLowerCase();
   }
 
-  Future<String?> _fetchCollectionBannerUrl(String handle) async {
-    const String query = r'''
-      query getCollectionBanner($handle: String!) {
-        collection(handle: $handle) {
-          image { url }
-          appBanner: metafield(namespace: "custom", key: "app_banner_image") {
-            reference { ... on MediaImage { image { url } } }
-          }
-        }
-      }
-    ''';
-
-    try {
-      final res = await ShopifyGraphQL.post(
-        query,
-        variables: {'handle': handle},
-      );
-      _log('getCollectionBannerUrl [$handle] → ${res.statusCode}');
-      if (res.hasErrors || res.data == null) return null;
-
-      final collection = res.data!['collection'] as Map<String, dynamic>?;
-      if (collection == null) return null;
-      return (collection['appBanner']?['reference']?['image']?['url']
-              as String?) ??
-          (collection['image']?['url'] as String?);
-    } catch (e) {
-      _log('getCollectionBannerUrl EXCEPTION: $e');
-      return null;
-    }
-  }
-
   /// The Explore Categories / Collections tab taxonomy: section → group →
   /// item. Built live from the Shopify navigation menus
   /// [ShopifyConstants.exploreMenuHandles] ("top-wear", "bottom-wear"), so
@@ -1585,7 +1195,7 @@ for (final e in rawVariantEdges) {
   /// that link to collections. A group's items come from its own nested
   /// items in that menu when it has any; otherwise from the separate menu
   /// whose handle is the group's collection handle (Shopify suffixes
-  /// duplicates, so "<handle>-1" is tried too — e.g. "tshirts-1").
+  /// duplicates, so `<handle>-1` is tried too — e.g. "tshirts-1").
   Future<List<ShopMenuSection>> _fetchExploreMenuSectionsFromMenus() async {
     final handles = ShopifyConstants.exploreMenuHandles;
     final sectionQuery = StringBuffer('query getExploreMenus {\n');
@@ -1710,7 +1320,7 @@ for (final e in rawVariantEdges) {
   }
 
   /// Collection handle a menu item points at, from its linked resource or
-  /// its "/collections/<handle>" URL; null for non-collection links.
+  /// its `/collections/<handle>` URL; null for non-collection links.
   static String? _menuItemHandle(Map item) {
     final resourceHandle = (item['resource'] as Map?)?['handle'] as String?;
     if (resourceHandle != null && resourceHandle.isNotEmpty) {
@@ -1785,7 +1395,7 @@ for (final e in rawVariantEdges) {
           edges {
             node {
               collection: field(key: "collection") { reference { ... on Collection { handle } } }
-              image: field(key: "image") { reference { ... on MediaImage { image { url } } } }
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
             }
           }
         }
@@ -1830,8 +1440,8 @@ for (final e in rawVariantEdges) {
     for (int i = 0; i < handles.length; i++) {
       final safeHandle = handles[i].replaceAll('"', r'\"');
       buffer.write('  c$i: collection(handle: "$safeHandle") {\n');
-      buffer.write('    image { url }\n');
-      buffer.write('    products(first: 1) { edges { node { featuredImage { url } } } }\n');
+      buffer.write('    image { url(transform: {maxWidth: 800}) }\n');
+      buffer.write('    products(first: 1) { edges { node { featuredImage { url(transform: {maxWidth: 800}) } } } }\n');
       buffer.write('  }\n');
     }
     buffer.write('}');
@@ -1891,7 +1501,7 @@ for (final e in rawVariantEdges) {
               id
               title
               handle
-              image { url altText }
+              image { url(transform: {maxWidth: 800}) altText }
             }
           }
         }
@@ -1920,70 +1530,4 @@ for (final e in rawVariantEdges) {
       return [];
     }
   }
-
-  Future<List<InstagramPostContent>> getInstagramPostsContent() =>
-      _cachedFetch('instagramPosts', _fetchInstagramPosts);
-
-  Future<List<InstagramPostContent>> _fetchInstagramPosts() async {
-    const String query = r'''
-      query getInstagramPosts {
-        metaobjects(type: "instagram_post", first: 20) {
-          edges {
-            node {
-              id
-              image: field(key: "image") { reference { ... on MediaImage { image { url } } } }
-              post_url: field(key: "post_url") { value }
-              username: field(key: "username") { value }
-              sort_order: field(key: "sort_order") { value }
-            }
-          }
-        }
-      }
-    ''';
-
-    try {
-      final res = await ShopifyGraphQL.post(query);
-      _log('getInstagramPostsContent → ${res.statusCode}');
-      if (res.hasErrors || res.data == null) return [];
-
-      final edges = (res.data!['metaobjects']['edges'] as List?) ?? [];
-      final posts = edges
-          .map((e) => InstagramPostContent.fromMetaobjectJson(
-              e['node'] as Map<String, dynamic>))
-          .toList();
-      posts.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-      return posts;
-    } catch (e) {
-      _log('getInstagramPostsContent EXCEPTION: $e');
-      return [];
-    }
-  }
-
-  Future<List<ShopifyProduct>> getHotDeals({
-    int first = ShopifyConstants.hotDealsCount,
-  }) =>
-      getProductsByCollection(
-        ShopifyConstants.hotDealsHandle,
-        first: first,
-      );
-
-  Future<List<ShopifyProduct>> getOversizedShirts({
-    int first = ShopifyConstants.oversizedShirtsCount,
-  }) =>
-      getProductsByCollection(
-        ShopifyConstants.oversizedShirtsHandle,
-        first: first,
-      );
-}
-
-class BalloonBannerData {
-  final String title;
-  final String description;
-  final String? imageUrl;
-
-  const BalloonBannerData({
-    required this.title,
-    required this.description,
-    this.imageUrl,
-  });
 }

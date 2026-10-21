@@ -84,32 +84,6 @@ class FeatureBannerContent {
   }
 }
 
-/// A tile in the "Shop By Price" grid (metaobject `price_tile`).
-class PriceTileContent {
-  final String id;
-  final String? imageUrl;
-
-  /// Collection handle, `/collections/...`, `/products/...` or a full URL.
-  final String link;
-  final int sortOrder;
-
-  const PriceTileContent({
-    required this.id,
-    this.imageUrl,
-    required this.link,
-    this.sortOrder = 0,
-  });
-
-  factory PriceTileContent.fromMetaobjectJson(Map<String, dynamic> json) {
-    return PriceTileContent(
-      id: json['id'] as String,
-      imageUrl: _imageUrlFrom(json['image']),
-      link: _textFrom(json['link']) ?? '',
-      sortOrder: _asInt(_textFrom(json['sort_order'])) ?? 0,
-    );
-  }
-}
-
 class ExploreCategoryContent {
   final String id;
   final String? imageUrl;
@@ -224,32 +198,6 @@ class OccasionTileContent {
       imageUrl: _imageUrlFrom(json['image']),
       label: _textFrom(json['label']),
       collectionHandle: _textFrom(json['collection_handle']) ?? '',
-      sortOrder: _asInt(_textFrom(json['sort_order'])) ?? 0,
-    );
-  }
-}
-
-class InstagramPostContent {
-  final String id;
-  final String? imageUrl;
-  final String postUrl;
-  final String username;
-  final int sortOrder;
-
-  const InstagramPostContent({
-    required this.id,
-    this.imageUrl,
-    required this.postUrl,
-    this.username = '',
-    this.sortOrder = 0,
-  });
-
-  factory InstagramPostContent.fromMetaobjectJson(Map<String, dynamic> json) {
-    return InstagramPostContent(
-      id: json['id'] as String,
-      imageUrl: _imageUrlFrom(json['image']),
-      postUrl: _textFrom(json['post_url']) ?? '',
-      username: _textFrom(json['username']) ?? '',
       sortOrder: _asInt(_textFrom(json['sort_order'])) ?? 0,
     );
   }

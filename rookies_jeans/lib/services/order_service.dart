@@ -1,9 +1,10 @@
 import 'dart:convert';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:rookies_jeans/constant/shopify_constants.dart';
-import 'package:rookies_jeans/constant/shopify_api.dart';
+import 'package:rookies_jeans/constants/shopify_constants.dart';
+import 'package:rookies_jeans/services/shopify_api.dart';
+import 'package:rookies_jeans/services/shopify_auth_service.dart';
+import 'package:rookies_jeans/utils/format.dart';
 
 class ShopifyOrderException implements Exception {
   final String code;
@@ -27,10 +28,11 @@ class ShopifyOrderService {
   ShopifyOrderService._();
   static final ShopifyOrderService instance = ShopifyOrderService._();
 
-  static const _storage = FlutterSecureStorage();
+  /// Up to 500 orders (10 pages of 50).
+  static const int _maxOrderPages = 10;
 
   Future<String?> _getToken() async {
-    final token = await _storage.read(key: 'shopify_customer_access_token');
+    final token = await ShopifyAuthService.instance.getSavedCustomerToken();
     if (token == null || token.isEmpty) return null;
     return token;
   }
@@ -40,9 +42,10 @@ class ShopifyOrderService {
     if (token == null) throw const ShopifyOrderException('not_logged_in');
 
     const String query = r'''
-      query getOrders($customerAccessToken: String!) {
+      query getOrders($customerAccessToken: String!, $after: String) {
         customer(customerAccessToken: $customerAccessToken) {
-          orders(first: 20, sortKey: PROCESSED_AT, reverse: true) {
+          orders(first: 50, after: $after, sortKey: PROCESSED_AT, reverse: true) {
+            pageInfo { hasNextPage endCursor }
             edges {
               node {
                 id
@@ -74,7 +77,7 @@ class ShopifyOrderService {
                       title
                       quantity
                       variant {
-                        image { url }
+                        image { url(transform: {maxWidth: 300}) }
                         price { amount currencyCode }
                         selectedOptions { name value }
                         product { handle title }
@@ -90,21 +93,30 @@ class ShopifyOrderService {
     ''';
 
     try {
-      final res = await ShopifyGraphQL.post(
-        query,
-        variables: {'customerAccessToken': token},
-      );
+      // Pages of 50, newest first, so repeat customers see all their
+      // orders (capped so a huge history can't loop forever).
+      final orders = <Map<String, dynamic>>[];
+      String? after;
+      for (var page = 0; page < _maxOrderPages; page++) {
+        final res = await ShopifyGraphQL.post(
+          query,
+          variables: {'customerAccessToken': token, 'after': after},
+        );
 
-      if (res.statusCode != 200) {
-        throw const ShopifyOrderException('fetch_failed');
+        if (res.statusCode != 200 || res.hasErrors) {
+          throw const ShopifyOrderException('fetch_failed');
+        }
+
+        final ordersNode = res.data?['customer']?['orders'];
+        final edges = (ordersNode?['edges'] as List?) ?? [];
+        orders.addAll(edges.map((e) => e['node'] as Map<String, dynamic>));
+
+        final pageInfo = ordersNode?['pageInfo'];
+        if (pageInfo?['hasNextPage'] != true) break;
+        after = pageInfo?['endCursor'] as String?;
+        if (after == null) break;
       }
-
-      final decoded = res.body;
-      if (decoded['errors'] != null) throw const ShopifyOrderException('fetch_failed');
-
-      final edges =
-          (decoded['data']?['customer']?['orders']?['edges'] as List?) ?? [];
-      return edges.map((e) => e['node'] as Map<String, dynamic>).toList();
+      return orders;
     } on ShopifyOrderException {
       rethrow;
     } catch (_) {
@@ -240,9 +252,8 @@ class ShopifyOrderService {
 
   String formatPrice(Map<String, dynamic> price) {
     final amount   = double.tryParse(price['amount']?.toString() ?? '0') ?? 0;
-    final currency = price['currencyCode'] ?? 'INR';
-    if (currency == 'INR') return '₹${amount.toStringAsFixed(2)}';
-    return '$currency ${amount.toStringAsFixed(2)}';
+    final currency = price['currencyCode']?.toString() ?? 'INR';
+    return formatMoney(amount, currency);
   }
 
   String formatDate(String isoDate) {

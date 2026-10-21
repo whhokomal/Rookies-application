@@ -6,8 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
-import 'package:rookies_jeans/constant/shopify_constants.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
+import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/models/cart_model.dart';
 import 'package:rookies_jeans/models/product_detail_model.dart';
 import 'package:rookies_jeans/models/product_model.dart';
@@ -19,8 +19,8 @@ import 'package:rookies_jeans/services/recently_viewed_service.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/screens/cart/cart.dart';
 import 'package:rookies_jeans/screens/cart/checkout_flow.dart';
-import 'package:rookies_jeans/widget/price_text.dart';
-import 'package:rookies_jeans/widget/product_row_section.dart';
+import 'package:rookies_jeans/widgets/price_text.dart';
+import 'package:rookies_jeans/widgets/product_row_section.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final String handle;
@@ -39,19 +39,6 @@ class ProductDetailPage extends StatefulWidget {
 }
 
 class _ProductDetailPageState extends State<ProductDetailPage> {
-  static Color get primary      => AppColors.primary;
-  static Color get onPrimary    => AppColors.onPrimary;
-  static Color get bgColor      => AppColors.bg;
-  static Color get cardColor    => AppColors.card;
-  static Color get secondaryTxt => AppColors.secondaryText;
-  static Color get borderColor  => AppColors.border;
-  static Color get fieldFill    => AppColors.fieldFill;
-  static Color get hintColor    => AppColors.hint;
-
-  static const String _fHeading = AppFonts.heading;
-  static const String _fBody = AppFonts.body;
-  static const String _fAccent = AppFonts.accent;
-
   String _numericProductId(String gid) => gid.split('/').last;
 
   double _s(double base) =>
@@ -85,7 +72,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   List<ShopifyProduct> _goesWellWith = [];
   List<ShopifyProduct> _youMayAlsoLike = [];
   List<ShopifyProduct> _colorSiblings = [];
-  bool _isLoadingRelated = false;
   int? _expandedTileIndex;
 
   // Kept alive across taps (and across re-fetches for the same product) so
@@ -301,7 +287,6 @@ debugPrint('==========================================');
 
   Future<void> _fetchRelatedProducts() async {
     if (!mounted) return;
-    setState(() => _isLoadingRelated = true);
 
     final pairings =
         ProductPairings.goesWellWithCollections(_detectCategory());
@@ -330,8 +315,6 @@ debugPrint('==========================================');
       }
     } catch (e) {
       debugPrint('Related products fetch error: $e');
-    } finally {
-      if (mounted) setState(() => _isLoadingRelated = false);
     }
   }
 
@@ -380,7 +363,7 @@ debugPrint('==========================================');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
           'Wishlist error: $e',
-          style: const TextStyle(fontFamily: _fBody),
+          style: const TextStyle(fontFamily: AppFonts.body),
         ),
         behavior: SnackBarBehavior.floating,
       ));
@@ -429,7 +412,7 @@ debugPrint('==========================================');
       content: Text(
         success
             ? '${_product?.title ?? 'Item'} added to cart'
-            : 'Failed to add item to cart',
+            : (CartService.instance.lastError ?? 'Failed to add item to cart'),
         style: const TextStyle(fontFamily: AppFonts.accent),
       ),
       duration: const Duration(seconds: 2),
@@ -466,7 +449,7 @@ debugPrint('==========================================');
         ..showSnackBar(const SnackBar(
           content: Text(
             'Order placed successfully!',
-            style: TextStyle(fontFamily: _fBody),
+            style: TextStyle(fontFamily: AppFonts.body),
           ),
           duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
@@ -529,7 +512,7 @@ debugPrint('==========================================');
     return AnimatedBuilder(
       animation: ThemeService.instance,
       builder: (context, _) => Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.bg,
       body: _isLoading
           ? _loadingState()
           : _error != null
@@ -579,10 +562,10 @@ debugPrint('==========================================');
         aspectRatio: 3 / 4,
         child: Stack(children: [
           Container(
-            color: fieldFill,
+            color: AppColors.fieldFill,
             alignment: Alignment.center,
             child: Icon(Icons.image_not_supported_outlined,
-                size: 52, color: hintColor),
+                size: 52, color: AppColors.hint),
           ),
           _backButton(),
           _wishlistButton(),
@@ -605,13 +588,13 @@ debugPrint('==========================================');
                   child: CachedNetworkImage(
                     imageUrl: images[i],
                     fit: BoxFit.cover,
-                    placeholder: (_, __) =>
-                        Container(color: fieldFill),
-                    errorWidget: (_, __, ___) => Container(
-                      color: fieldFill,
+                    placeholder: (_, _) =>
+                        Container(color: AppColors.fieldFill),
+                    errorWidget: (_, _, _) => Container(
+                      color: AppColors.fieldFill,
                       alignment: Alignment.center,
                       child: Icon(Icons.image_not_supported_outlined,
-                          size: 52, color: hintColor),
+                          size: 52, color: AppColors.hint),
                     ),
                   ),
                 ),
@@ -635,8 +618,8 @@ debugPrint('==========================================');
                 height: 6,
                 decoration: BoxDecoration(
                   color: _currentImageIndex == i
-                      ? primary
-                      : borderColor,
+                      ? AppColors.primary
+                      : AppColors.border,
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -666,7 +649,7 @@ debugPrint('==========================================');
             width: 48,
             height: 48,
             child: Icon(Icons.arrow_back_ios_new_rounded,
-                size: 22, color: primary),
+                size: 22, color: AppColors.primary),
           ),
         ),
       );
@@ -684,7 +667,7 @@ debugPrint('==========================================');
                 ? Padding(
                     padding: const EdgeInsets.all(10),
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: primary),
+                        strokeWidth: 2, color: AppColors.primary),
                   )
                 : AnimatedSwitcher(
                     duration: const Duration(milliseconds: 250),
@@ -715,7 +698,7 @@ debugPrint('==========================================');
             child: Icon(
               Icons.share_outlined,
               size: 20,
-              color: primary,
+              color: AppColors.primary,
             ),
           ),
         ),
@@ -735,15 +718,15 @@ debugPrint('==========================================');
             child: RichText(
               text: TextSpan(
                 style: TextStyle(
-                  fontFamily: _fBody,
+                  fontFamily: AppFonts.body,
                   fontSize: _s(12),
-                  color: secondaryTxt,
+                  color: AppColors.secondaryText,
                   height: 1.5,
                 ),
                 children: [
                   TextSpan(
                     text: '${m.label}: ',
-                    style: TextStyle(fontFamily: _fAccent, color: primary),
+                    style: TextStyle(fontFamily: AppFonts.accent, color: AppColors.primary),
                   ),
                   TextSpan(text: m.formattedValue),
                 ],
@@ -855,7 +838,6 @@ debugPrint('==========================================');
     return null;
   }
 
-
   /// Row of color swatches for the sibling products in this item's Variant
   /// King color group (see `_fetchColorSiblings`). Tapping a swatch that
   /// isn't the currently-open product swaps this same page over to that
@@ -875,9 +857,9 @@ debugPrint('==========================================');
           Text(
             'AVAILABLE COLORS',
             style: TextStyle(
-              fontFamily: _fAccent,
+              fontFamily: AppFonts.accent,
               fontSize: _s(11),
-              color: primary,
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 10),
@@ -928,7 +910,7 @@ debugPrint('==========================================');
               height: 34,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: hasImage ? null : (fallbackColor ?? fieldFill),
+                color: hasImage ? null : (fallbackColor ?? AppColors.fieldFill),
                 image: hasImage
                     ? DecorationImage(
                         image: CachedNetworkImageProvider(imageUrl),
@@ -936,7 +918,7 @@ debugPrint('==========================================');
                       )
                     : null,
                 border: Border.all(
-                  color: isCurrent ? primary : borderColor,
+                  color: isCurrent ? AppColors.primary : AppColors.border,
                   width: isCurrent ? 2 : 1,
                 ),
               ),
@@ -945,9 +927,9 @@ debugPrint('==========================================');
                       child: Text(
                         title.isNotEmpty ? title[0].toUpperCase() : '?',
                         style: TextStyle(
-                          fontFamily: _fBody,
+                          fontFamily: AppFonts.body,
                           fontSize: 10,
-                          color: primary,
+                          color: AppColors.primary,
                         ),
                       ),
                     )
@@ -960,9 +942,9 @@ debugPrint('==========================================');
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: _fBody,
+                fontFamily: AppFonts.body,
                 fontSize: _s(9),
-                color: primary,
+                color: AppColors.primary,
               ),
             ),
           ],
@@ -970,7 +952,6 @@ debugPrint('==========================================');
       ),
     );
   }
-
 
   Widget _infoSection(ShopifyProductDetail p) {
     return Padding(
@@ -986,7 +967,7 @@ debugPrint('==========================================');
               fontFamily: AppFonts.subheading,
               fontSize: _s(30),
               letterSpacing: 0.5,
-              color: primary,
+              color: AppColors.primary,
               height: 1.05,
             ),
           ),
@@ -1073,23 +1054,23 @@ _variantMetafieldsSection(),
             children: [
               Padding(
                 padding: const EdgeInsets.only(top: 6, right: 8),
-                child: Icon(Icons.circle, size: 5, color: secondaryTxt),
+                child: Icon(Icons.circle, size: 5, color: AppColors.secondaryText),
               ),
               Expanded(
                 child: RichText(
                   text: TextSpan(
                     style: TextStyle(
-                      fontFamily: _fBody,
+                      fontFamily: AppFonts.body,
                       fontSize: _s(13),
-                      color: secondaryTxt,
+                      color: AppColors.secondaryText,
                       height: 1.5,
                     ),
                     children: [
                       TextSpan(
                         text: '$label ',
                         style: TextStyle(
-                          fontFamily: _fAccent,
-                          color: primary,
+                          fontFamily: AppFonts.accent,
+                          color: AppColors.primary,
                         ),
                       ),
                       TextSpan(text: value),
@@ -1106,9 +1087,9 @@ _variantMetafieldsSection(),
           child: Text(
             trimmed,
             style: TextStyle(
-              fontFamily: _fBody,
+              fontFamily: AppFonts.body,
               fontSize: _s(13),
-              color: secondaryTxt,
+              color: AppColors.secondaryText,
               height: 1.6,
             ),
           ),
@@ -1125,14 +1106,14 @@ _variantMetafieldsSection(),
           setState(() => _expandedTileIndex = expanded ? index : null);
         },
         tilePadding: EdgeInsets.zero,
-        iconColor: primary,
-        collapsedIconColor: secondaryTxt,
+        iconColor: AppColors.primary,
+        collapsedIconColor: AppColors.secondaryText,
         title: Text(
           'Description',
           style: TextStyle(
-            fontFamily: _fAccent,
+            fontFamily: AppFonts.accent,
             fontSize: _s(14),
-            color: primary,
+            color: AppColors.primary,
           ),
         ),
         children: [
@@ -1158,14 +1139,14 @@ _variantMetafieldsSection(),
           setState(() => _expandedTileIndex = expanded ? index : null);
         },
         tilePadding: EdgeInsets.zero,
-        iconColor: primary,
-        collapsedIconColor: secondaryTxt,
+        iconColor: AppColors.primary,
+        collapsedIconColor: AppColors.secondaryText,
         title: Text(
           label,
           style: TextStyle(
-            fontFamily: _fAccent,
+            fontFamily: AppFonts.accent,
             fontSize: _s(14),
-            color: primary,
+            color: AppColors.primary,
           ),
         ),
         children: [
@@ -1176,9 +1157,9 @@ _variantMetafieldsSection(),
               child: Text(
                 content,
                 style: TextStyle(
-                  fontFamily: _fBody,
+                  fontFamily: AppFonts.body,
                   fontSize: _s(13),
-                  color: secondaryTxt,
+                  color: AppColors.secondaryText,
                   height: 1.6,
                 ),
               ),
@@ -1210,7 +1191,7 @@ _variantMetafieldsSection(),
 
   Widget _priceBlock(ShopifyProductDetail p) {
     if (!p.isOnSale) {
-      return PriceText(p.formattedPrice, currencyCode: p.currencyCode, fontSize: _s(20), color: primary, amountFontFamily: _fBody);
+      return PriceText(p.formattedPrice, currencyCode: p.currencyCode, fontSize: _s(20), color: AppColors.primary, amountFontFamily: AppFonts.body);
     }
     final saved = (p.compareAtPrice! - p.price).round();
     return Column(
@@ -1220,15 +1201,15 @@ _variantMetafieldsSection(),
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 10,
           children: [
-            PriceText(p.formattedPrice, currencyCode: p.currencyCode, fontSize: _s(20), color: primary, amountFontFamily: _fBody),
-            PriceText(p.formattedCompareAtPrice, currencyCode: p.currencyCode, fontSize: _s(14), color: secondaryTxt, amountFontFamily: _fBody, decoration: TextDecoration.lineThrough),
+            PriceText(p.formattedPrice, currencyCode: p.currencyCode, fontSize: _s(20), color: AppColors.primary, amountFontFamily: AppFonts.body),
+            PriceText(p.formattedCompareAtPrice, currencyCode: p.currencyCode, fontSize: _s(14), color: AppColors.secondaryText, amountFontFamily: AppFonts.body, decoration: TextDecoration.lineThrough),
           ],
         ),
         const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: const Color(0xFF2E7D32).withOpacity(0.1)),
-          child: SavedAmountText(saved.toString(), currencyCode: p.currencyCode, fontSize: _s(11), color: const Color(0xFF2E7D32), fontFamily: _fBody),
+          decoration: BoxDecoration(color: const Color(0xFF2E7D32).withValues(alpha: 0.1)),
+          child: SavedAmountText(saved.toString(), currencyCode: p.currencyCode, fontSize: _s(11), color: const Color(0xFF2E7D32), fontFamily: AppFonts.body),
         ),
       ],
     );
@@ -1244,17 +1225,17 @@ _variantMetafieldsSection(),
               child: RichText(
                 text: TextSpan(
                   style: TextStyle(
-                    fontFamily: _fAccent,
+                    fontFamily: AppFonts.accent,
                     fontSize: _s(11),
-                    color: primary,
+                    color: AppColors.primary,
                   ),
                   children: [
                     TextSpan(text: opt.name.toUpperCase()),
                     TextSpan(
                       text: ' ${_selectedOptions[opt.name] ?? ''}',
                       style: TextStyle(
-                        fontFamily: _fBody,
-                        color: secondaryTxt,
+                        fontFamily: AppFonts.body,
+                        color: AppColors.secondaryText,
                       ),
                     ),
                   ],
@@ -1292,16 +1273,16 @@ _variantMetafieldsSection(),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.straighten_rounded, size: 16, color: primary),
+                    Icon(Icons.straighten_rounded, size: 16, color: AppColors.primary),
                     const SizedBox(width: 4),
                     Text(
                       'Size Chart',
                       style: TextStyle(
-                        fontFamily: _fBody,
+                        fontFamily: AppFonts.body,
                         fontSize: _s(12),
-                        color: primary,
+                        color: AppColors.primary,
                         decoration: TextDecoration.underline,
-                        decorationColor: primary,
+                        decorationColor: AppColors.primary,
                       ),
                     ),
                   ],
@@ -1319,18 +1300,18 @@ _variantMetafieldsSection(),
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? primary : cardColor,
+          color: isSelected ? AppColors.primary : AppColors.card,
           border: Border.all(
-            color: isSelected ? primary : borderColor,
+            color: isSelected ? AppColors.primary : AppColors.border,
             width: isSelected ? 1.5 : 0.8,
           ),
         ),
         child: Text(
           val,
           style: TextStyle(
-            fontFamily: _fBody,
+            fontFamily: AppFonts.body,
             fontSize: _s(12),
-            color: isSelected ? onPrimary : primary,
+            color: isSelected ? AppColors.onPrimary : AppColors.primary,
           ),
         ),
       ),
@@ -1373,7 +1354,7 @@ _variantMetafieldsSection(),
             height: 34,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: color ?? fieldFill,
+              color: color ?? AppColors.fieldFill,
               image: imageUrl != null
                   ? DecorationImage(
                       image: CachedNetworkImageProvider(imageUrl),
@@ -1381,7 +1362,7 @@ _variantMetafieldsSection(),
                     )
                   : null,
               border: Border.all(
-                color: isSelected ? primary : borderColor,
+                color: isSelected ? AppColors.primary : AppColors.border,
                 width: isSelected ? 2 : 1,
               ),
             ),
@@ -1390,9 +1371,9 @@ _variantMetafieldsSection(),
                     child: Text(
                       val.isNotEmpty ? val[0].toUpperCase() : '?',
                       style: TextStyle(
-                        fontFamily: _fBody,
+                        fontFamily: AppFonts.body,
                         fontSize: 10,
-                        color: primary,
+                        color: AppColors.primary,
                       ),
                     ),
                   )
@@ -1402,9 +1383,9 @@ _variantMetafieldsSection(),
           Text(
             val,
             style: TextStyle(
-              fontFamily: _fBody,
+              fontFamily: AppFonts.body,
               fontSize: _s(10),
-              color: primary,
+              color: AppColors.primary,
             ),
           ),
         ],
@@ -1429,7 +1410,7 @@ _variantMetafieldsSection(),
         Text(
           inStock ? 'In Stock' : 'Out of Stock',
           style: TextStyle(
-            fontFamily: _fBody,
+            fontFamily: AppFonts.body,
             fontSize: _s(12),
             color: inStock
                 ? const Color(0xFF2E7D32)
@@ -1444,7 +1425,7 @@ _variantMetafieldsSection(),
     final variant = _selectedVariant;
     final inStock = variant?.availableForSale ?? false;
     final height = _s(50).clamp(46.0, 60.0);
-    final label = TextStyle(fontFamily: _fAccent, fontSize: _s(13));
+    final label = TextStyle(fontFamily: AppFonts.accent, fontSize: _s(13));
 
     Widget spinner(Color color) => SizedBox(
           width: 20,
@@ -1459,11 +1440,11 @@ _variantMetafieldsSection(),
         child: ElevatedButton(
           onPressed: null,
           style: ElevatedButton.styleFrom(
-            disabledBackgroundColor: borderColor,
+            disabledBackgroundColor: AppColors.border,
             elevation: 0,
             shape: AppShapes.button,
           ),
-          child: Text('SOLD OUT', style: label.copyWith(color: onPrimary)),
+          child: Text('SOLD OUT', style: label.copyWith(color: AppColors.onPrimary)),
         ),
       );
     }
@@ -1490,16 +1471,16 @@ _variantMetafieldsSection(),
                           ? _goToCart
                           : _handleAddToCart,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: primary,
-                        side: BorderSide(color: primary, width: 1.2),
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(color: AppColors.primary, width: 1.2),
                         shape: AppShapes.button,
                         minimumSize: Size.fromHeight(height),
                       ),
                       child: _isAddingToCart
-                          ? spinner(primary)
+                          ? spinner(AppColors.primary)
                           : Text(
                               alreadyInCart ? 'GO TO CART' : 'ADD TO CART',
-                              style: label.copyWith(color: primary),
+                              style: label.copyWith(color: AppColors.primary),
                             ),
                     ),
                   ),
@@ -1513,16 +1494,16 @@ _variantMetafieldsSection(),
               child: ElevatedButton(
                 onPressed: busy ? null : _handleBuyNow,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  foregroundColor: onPrimary,
-                  disabledBackgroundColor: primary.withValues(alpha: 0.6),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
+                  disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
                   elevation: 0,
                   shape: AppShapes.button,
                   minimumSize: Size.fromHeight(height),
                 ),
                 child: _isBuyingNow
-                    ? spinner(onPrimary)
-                    : Text('BUY NOW', style: label.copyWith(color: onPrimary)),
+                    ? spinner(AppColors.onPrimary)
+                    : Text('BUY NOW', style: label.copyWith(color: AppColors.onPrimary)),
               ),
             ),
           ],
@@ -1542,7 +1523,7 @@ _variantMetafieldsSection(),
             child: Icon(
               icon,
               size: 18,
-              color: onTap == null ? secondaryTxt : primary,
+              color: onTap == null ? AppColors.secondaryText : AppColors.primary,
             ),
           ),
         );
@@ -1550,7 +1531,7 @@ _variantMetafieldsSection(),
     return Container(
       height: height,
       decoration: BoxDecoration(
-        border: Border.all(color: primary, width: 1.2),
+        border: Border.all(color: AppColors.primary, width: 1.2),
         borderRadius: AppShapes.buttonBorderRadius,
       ),
       clipBehavior: Clip.antiAlias,
@@ -1567,9 +1548,9 @@ _variantMetafieldsSection(),
               '$_quantity',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: _fAccent,
+                fontFamily: AppFonts.accent,
                 fontSize: _s(14),
-                color: primary,
+                color: AppColors.primary,
               ),
             ),
           ),
@@ -1583,12 +1564,12 @@ _variantMetafieldsSection(),
   }
 
   Widget _loadingState() => Scaffold(
-        backgroundColor: bgColor,
+        backgroundColor: AppColors.bg,
         body: SafeArea(
           child: Column(
             children: [
               Container(
-                color: cardColor,
+                color: AppColors.card,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 child: Row(
@@ -1596,16 +1577,16 @@ _variantMetafieldsSection(),
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios_new_rounded,
                           size: 18),
-                      color: primary,
+                      color: AppColors.primary,
                       onPressed: () => Navigator.maybePop(context),
                     ),
                     Expanded(
                       child: Text(
                         _currentTitle.toUpperCase(),
                         style: TextStyle(
-                          fontFamily: _fBody,
+                          fontFamily: AppFonts.body,
                           fontSize: _s(12),
-                          color: primary,
+                          color: AppColors.primary,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1619,20 +1600,20 @@ _variantMetafieldsSection(),
                   child: CachedNetworkImage(
                     imageUrl: _currentHeroImageUrl!,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) =>
-                        Container(color: fieldFill),
-                    errorWidget: (_, __, ___) =>
-                        Container(color: fieldFill),
+                    placeholder: (_, _) =>
+                        Container(color: AppColors.fieldFill),
+                    errorWidget: (_, _, _) =>
+                        Container(color: AppColors.fieldFill),
                   ),
                 )
               else
                 AspectRatio(
                   aspectRatio: 3 / 4,
-                  child: Container(color: fieldFill),
+                  child: Container(color: AppColors.fieldFill),
                 ),
               Expanded(
                 child: Center(
-                  child: CircularProgressIndicator(color: primary),
+                  child: CircularProgressIndicator(color: AppColors.primary),
                 ),
               ),
             ],
@@ -1641,13 +1622,13 @@ _variantMetafieldsSection(),
       );
 
   Widget _errorState() => Scaffold(
-        backgroundColor: bgColor,
+        backgroundColor: AppColors.bg,
         appBar: AppBar(
-          backgroundColor: cardColor,
+          backgroundColor: AppColors.card,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-            color: primary,
+            color: AppColors.primary,
             onPressed: () => Navigator.maybePop(context),
           ),
           leadingWidth: 44,
@@ -1658,12 +1639,12 @@ _variantMetafieldsSection(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontFamily: _fHeading,
+              fontFamily: AppFonts.heading,
               fontSize: (MediaQuery.of(context).size.width * 0.09)
                   .clamp(20.0, 40.0),
               fontStyle: FontStyle.italic,
               height: 1,
-              color: primary,
+              color: AppColors.primary,
             ),
           ),
         ),
@@ -1674,15 +1655,15 @@ _variantMetafieldsSection(),
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.wifi_off_rounded,
-                    size: 52, color: hintColor),
+                    size: 52, color: AppColors.hint),
                 const SizedBox(height: 14),
                 Text(
                   _error ?? 'Something went wrong.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: _fBody,
+                    fontFamily: AppFonts.body,
                     fontSize: _s(13),
-                    color: secondaryTxt,
+                    color: AppColors.secondaryText,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -1691,11 +1672,11 @@ _variantMetafieldsSection(),
                   icon: const Icon(Icons.refresh_rounded, size: 16),
                   label: const Text(
                     'RETRY',
-                    style: TextStyle(fontFamily: _fAccent),
+                    style: TextStyle(fontFamily: AppFonts.accent),
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: primary,
-                    side: BorderSide(color: primary),
+                    foregroundColor: AppColors.primary,
+                    side: BorderSide(color: AppColors.primary),
                   ),
                 ),
               ],
@@ -1754,8 +1735,8 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
     } else if (_doubleTapDetails != null) {
       final position = _doubleTapDetails!.localPosition;
       controller.value = Matrix4.identity()
-        ..translate(-position.dx * 1.5, -position.dy * 1.5)
-        ..scale(2.5);
+        ..translateByDouble(-position.dx * 1.5, -position.dy * 1.5, 0, 1)
+        ..scaleByDouble(2.5, 2.5, 2.5, 1);
       setState(() => _isZoomed = true);
     }
   }
@@ -1791,11 +1772,11 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
                   child: CachedNetworkImage(
                     imageUrl: widget.imageUrls[i],
                     fit: BoxFit.contain,
-                    placeholder: (_, __) => const Center(
+                    placeholder: (_, _) => const Center(
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white54),
                     ),
-                    errorWidget: (_, __, ___) => const Icon(
+                    errorWidget: (_, _, _) => const Icon(
                         Icons.image_not_supported_outlined,
                         size: 52,
                         color: Colors.white38),

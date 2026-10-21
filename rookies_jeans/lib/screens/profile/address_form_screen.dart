@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/models/address_model.dart';
 import 'package:rookies_jeans/services/address_service.dart';
 
@@ -14,16 +14,6 @@ class AddEditAddressScreen extends StatefulWidget {
 }
 
 class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
-  static Color get _primary   => AppColors.primary;
-  static Color get _onPrimary => AppColors.onPrimary;
-  static Color get _bg        => AppColors.bg;
-  static Color get _card      => AppColors.card;
-  static Color get _fieldFill => AppColors.fieldFill;
-  static Color get _border    => AppColors.border;
-  static Color get _hint       => AppColors.hint;
-  static Color get _label      => AppColors.secondaryText;
-  static Color get _text       => AppColors.primary;
-
   static const _fHead = AppFonts.heading;
   static const _fBody = AppFonts.body;
   static const _fBold = AppFonts.bold;
@@ -126,9 +116,9 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
     return AnimatedBuilder(
       animation: ThemeService.instance,
       builder: (context, _) => Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: _bg,
+        backgroundColor: AppColors.bg,
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
@@ -143,7 +133,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
                 child: Icon(
                   Icons.arrow_back_ios_new,
                   size: 22,
-                  color: _primary,
+                  color: AppColors.primary,
                 ),
               ),
               const SizedBox(width: 10),
@@ -154,7 +144,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
                   height: 1,
                   fontFamily: _fHead,
                   fontStyle: FontStyle.italic,
-                  color: _primary,
+                  color: AppColors.primary,
                 ),
               ),
             ],
@@ -263,7 +253,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
             ),
             const SizedBox(height: 24),
             Container(
-              color: _card,
+              color: AppColors.card,
               child: InkWell(
                 onTap: () => setState(() => _setAsDefault = !_setAsDefault),
                 child: Padding(
@@ -280,7 +270,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
                                 fontFamily: _fBold,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: _text,
+                                color: AppColors.primary,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -289,7 +279,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
                               style: TextStyle(
                                 fontFamily: _fBody,
                                 fontSize: 11,
-                                color: _label,
+                                color: AppColors.secondaryText,
                               ),
                             ),
                           ],
@@ -298,7 +288,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
                       Switch(
                         value: _setAsDefault,
                         onChanged: (v) => setState(() => _setAsDefault = v),
-                        activeColor: _primary,
+                        activeThumbColor: AppColors.primary,
                       ),
                     ],
                   ),
@@ -311,8 +301,8 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         decoration: BoxDecoration(
-          color: _card,
-          border: Border(top: BorderSide(color: _border)),
+          color: AppColors.card,
+          border: Border(top: BorderSide(color: AppColors.border)),
         ),
         child: SafeArea(
           top: false,
@@ -321,8 +311,8 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
             child: ElevatedButton(
               onPressed: _isSaving ? null : _save,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _primary,
-                foregroundColor: _onPrimary,
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.onPrimary,
                 elevation: 0,
                 shape: AppShapes.button,
               ),
@@ -331,7 +321,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: _onPrimary),
+                          strokeWidth: 2, color: AppColors.onPrimary),
                     )
                   : Text(
                       _isEditing ? 'Save Changes' : 'Add Address',
@@ -357,7 +347,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
             fontFamily: _fBold,
             fontSize: 10,
             fontWeight: FontWeight.w700,
-            color: _label,
+            color: AppColors.secondaryText,
             letterSpacing: 0.8,
           ),
         ),
@@ -380,30 +370,30 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
         style: TextStyle(
           fontFamily: _fBody,
           fontSize: 14,
-          color: _text,
+          color: AppColors.primary,
         ),
         decoration: InputDecoration(
           filled: true,
-          fillColor: _fieldFill,
+          fillColor: AppColors.fieldFill,
           hintText: hint,
           hintStyle: TextStyle(
             fontFamily: _fBody,
             fontSize: 14,
-            color: _hint,
+            color: AppColors.hint,
           ),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.zero,
-            borderSide: BorderSide(color: _border),
+            borderSide: BorderSide(color: AppColors.border),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.zero,
-            borderSide: BorderSide(color: _border),
+            borderSide: BorderSide(color: AppColors.border),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.zero,
-            borderSide: BorderSide(color: _primary, width: 1.5),
+            borderSide: BorderSide(color: AppColors.primary, width: 1.5),
           ),
           errorBorder: const OutlineInputBorder(
             borderRadius: BorderRadius.zero,

@@ -1,3 +1,5 @@
+import 'package:rookies_jeans/utils/format.dart';
+
 class ShopifyCartLine {
   final String lineId;
   final String variantId;
@@ -26,10 +28,10 @@ class ShopifyCartLine {
   double get lineTotal => price * quantity;
 
   String get formattedPrice =>
-      currencyCode == 'INR' ? '₹${price.toStringAsFixed(0)}' : '$currencyCode ${price.toStringAsFixed(2)}';
+      formatMoney(price, currencyCode);
 
   String get formattedLineTotal =>
-      currencyCode == 'INR' ? '₹${lineTotal.toStringAsFixed(0)}' : '$currencyCode ${lineTotal.toStringAsFixed(2)}';
+      formatMoney(lineTotal, currencyCode);
 
   factory ShopifyCartLine.fromJson(Map<String, dynamic> json) {
   final merchandise = json['merchandise'] as Map<String, dynamic>?;
@@ -73,9 +75,7 @@ class ShopifyCart {
     required this.totalQuantity,
   });
 
-  String get formattedSubtotal => currencyCode == 'INR'
-      ? '₹${subtotal.toStringAsFixed(0)}'
-      : '$currencyCode ${subtotal.toStringAsFixed(2)}';
+  String get formattedSubtotal => formatMoney(subtotal, currencyCode);
 
   factory ShopifyCart.fromJson(Map<String, dynamic> json) {
     final linesEdges = (json['lines']?['edges'] as List?) ?? [];

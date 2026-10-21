@@ -1,205 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:rookies_jeans/constant/shopify_constants.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
+import 'package:rookies_jeans/constants/shopify_constants.dart';
+import 'package:rookies_jeans/services/auth_service.dart';
 import 'package:rookies_jeans/services/otp_auth_service.dart';
-import 'package:rookies_jeans/services/shopify_auth_service.dart';
+import 'package:rookies_jeans/widgets/web_view_screen.dart';
 
 const double _kMaxContentW = 640;
 
 double _s(BuildContext c, double base) =>
     Responsive.of(c, baseW: 375).s(base);
-
-class WebViewScreen extends StatefulWidget {
-  const WebViewScreen({
-    super.key,
-    required this.title,
-    required this.url,
-  });
-
-  final String title;
-  final String url;
-
-  @override
-  State<WebViewScreen> createState() => _WebViewScreenState();
-}
-
-class _WebViewScreenState extends State<WebViewScreen> {
-  static Color get _primary => AppColors.primary;
-  static Color get _onPrimary => AppColors.onPrimary;
-  static Color get _bg => AppColors.bg;
-  static Color get _card => AppColors.card;
-  static Color get _secondaryText => AppColors.secondaryText;
-  static Color get _border => AppColors.border;
-
-  late final WebViewController _controller;
-  bool _isLoading = true;
-  bool _hasError  = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (_) => setState(() {
-            _isLoading = true;
-            _hasError  = false;
-          }),
-          onPageFinished: (_) => setState(() => _isLoading = false),
-          onWebResourceError: (_) => setState(() {
-            _isLoading = false;
-            _hasError  = true;
-          }),
-        ),
-      )
-      ..loadRequest(Uri.parse(widget.url));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: _card,
-        elevation: 0.5,
-        shadowColor: _border,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded,
-              size: _s(context, 18).clamp(16.0, 26.0),
-              color: _primary),
-          onPressed: () => context.pop(),
-        ),
-        leadingWidth: 44,
-        titleSpacing: 0,
-        title: Text(
-          widget.title.toUpperCase(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontFamily: ShopifyConstants.fontHeading,
-            fontSize: (MediaQuery.of(context).size.width * 0.09)
-                .clamp(20.0, 40.0),
-            fontStyle: FontStyle.italic,
-            height: 1,
-            color: _primary,
-          ),
-        ),
-        centerTitle: false,
-      ),
-      body: Stack(
-        children: [
-          if (_hasError)
-            Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(_s(context, 24)),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.wifi_off_rounded,
-                        size: _s(context, 48).clamp(40.0, 66.0),
-                        color: _secondaryText),
-                    SizedBox(height: _s(context, 12)),
-                    Text(
-                      'Failed to load page',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: ShopifyConstants.fontBody,
-                        fontSize: _s(context, 14).clamp(13.0, 18.0),
-                        color: _secondaryText,
-                      ),
-                    ),
-                    SizedBox(height: _s(context, 16)),
-                    ElevatedButton(
-                      onPressed: () => _controller.reload(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primary,
-                        foregroundColor: _onPrimary,
-                        elevation: 0,
-                        shape: AppShapes.button,
-                      ),
-                      child: const Text(
-                        'Retry',
-                        style: TextStyle(
-                          fontFamily: ShopifyConstants.fontBody,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            WebViewWidget(controller: _controller),
-          if (_isLoading && !_hasError)
-            LinearProgressIndicator(
-              minHeight: 2,
-              backgroundColor: Colors.transparent,
-              color: _primary,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class AuthService extends ChangeNotifier {
-  static final AuthService instance = AuthService._();
-  AuthService._();
-
-  bool _isLoggedIn = false;
-  String _firstName = '';
-  String _lastName  = '';
-  String _email     = '';
-
-  bool   get isLoggedIn => _isLoggedIn;
-  String get firstName  => _firstName;
-  String get lastName   => _lastName;
-  String get email      => _email;
-
-  String get initials {
-    final f = _firstName.isNotEmpty ? _firstName[0].toUpperCase() : '';
-    final l = _lastName.isNotEmpty  ? _lastName[0].toUpperCase()  : '';
-    return '$f$l';
-  }
-
-  Future<void> initialize() async {
-    final loggedIn = await ShopifyAuthService.instance.isLoggedIn();
-    if (!loggedIn) return;
-    final customer = await ShopifyAuthService.instance.getCurrentCustomer();
-    if (customer != null) {
-      _firstName  = customer.firstName ?? '';
-      _lastName   = customer.lastName  ?? '';
-      _email      = customer.email     ?? '';
-      _isLoggedIn = true;
-      notifyListeners();
-    }
-  }
-
-  void signIn({
-    required String firstName,
-    required String lastName,
-    required String email,
-  }) {
-    _firstName  = firstName;
-    _lastName   = lastName;
-    _email      = email;
-    _isLoggedIn = true;
-    notifyListeners();
-  }
-
-  Future<void> signOut() async {
-    await ShopifyAuthService.instance.logout();
-    _firstName  = '';
-    _lastName   = '';
-    _email      = '';
-    _isLoggedIn = false;
-    notifyListeners();
-  }
-}
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -220,20 +30,10 @@ class ProfileScreen extends StatelessWidget {
 class _LoggedOutProfile extends StatelessWidget {
   const _LoggedOutProfile();
 
-  static Color get _primary => AppColors.primary;
-  static Color get _onPrimary => AppColors.onPrimary;
-  static Color get _bg => AppColors.bg;
-  static Color get _card => AppColors.card;
-  static Color get _secondaryText => AppColors.secondaryText;
-  static Color get _fieldFill => AppColors.fieldFill;
-
-  static const String _fHead = AppFonts.heading;
-  static const String _fBody = AppFonts.body;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final media   = MediaQuery.of(context);
@@ -255,16 +55,16 @@ class _LoggedOutProfile extends StatelessWidget {
                         'assets/welcome_model.png',
                         fit: BoxFit.cover,
                         alignment: Alignment.topCenter,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: _fieldFill,
+                        errorBuilder: (_, _, _) => Container(
+                          color: AppColors.fieldFill,
                           child: Icon(Icons.person,
                               size: _s(context, 96).clamp(72.0, 140.0),
-                              color: _secondaryText),
+                              color: AppColors.secondaryText),
                         ),
                       ),
                     ),
                     Container(
-                      color: _card,
+                      color: AppColors.card,
                       padding: EdgeInsets.fromLTRB(
                           _s(context, 24), _s(context, 28), _s(context, 24), _s(context, 28)),
                       child: Column(
@@ -274,8 +74,8 @@ class _LoggedOutProfile extends StatelessWidget {
                             'WELCOME!',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontFamily: _fHead,
-                              color: _primary,
+                              fontFamily: AppFonts.heading,
+                              color: AppColors.primary,
                               fontSize: _s(context, 26).clamp(22.0, 34.0),
                               fontWeight: FontWeight.w500,
                             ),
@@ -286,14 +86,14 @@ class _LoggedOutProfile extends StatelessWidget {
                             child: ElevatedButton(
                               onPressed: () => context.push('/login'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _primary,
-                                foregroundColor: _onPrimary,
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: AppColors.onPrimary,
                                 elevation: 0,
                               ),
                               child: Text(
                                 'Sign In',
                                 style: TextStyle(
-                                  fontFamily: _fBody,
+                                  fontFamily: AppFonts.body,
                                   fontSize: _s(context, 16).clamp(14.0, 20.0),
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -306,9 +106,9 @@ class _LoggedOutProfile extends StatelessWidget {
                               textAlign: TextAlign.center,
                               text: TextSpan(
                                 style: TextStyle(
-                                  fontFamily: _fBody,
+                                  fontFamily: AppFonts.body,
                                   fontSize: _s(context, 13).clamp(12.0, 17.0),
-                                  color: _secondaryText,
+                                  color: AppColors.secondaryText,
                                 ),
                                 children: [
                                   const TextSpan(text: "Don't have an account? "),
@@ -319,9 +119,9 @@ class _LoggedOutProfile extends StatelessWidget {
                                       child: Text(
                                         'Create Account',
                                         style: TextStyle(
-                                          fontFamily: _fBody,
+                                          fontFamily: AppFonts.body,
                                           fontSize: _s(context, 13).clamp(12.0, 17.0),
-                                          color: _primary,
+                                          color: AppColors.primary,
                                           decoration: TextDecoration.underline,
                                           fontWeight: FontWeight.w900,
                                         ),
@@ -351,19 +151,11 @@ class _LoggedOutProfile extends StatelessWidget {
 class _LoggedInProfile extends StatelessWidget {
   const _LoggedInProfile();
 
-  static Color get _primary => AppColors.primary;
-  static Color get _bg => AppColors.bg;
-  static Color get _card => AppColors.card;
-  static Color get _border => AppColors.border;
-  static Color get _fieldFill => AppColors.fieldFill;
-
-  static const String _fHead = AppFonts.heading;
-
   @override
   Widget build(BuildContext context) {
     final auth = AuthService.instance;
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -373,7 +165,7 @@ class _LoggedInProfile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    color: _card,
+                    color: AppColors.card,
                     padding: EdgeInsets.fromLTRB(
                         _s(context, 24), _s(context, 40), _s(context, 24), _s(context, 32)),
                     child: Column(
@@ -382,10 +174,10 @@ class _LoggedInProfile extends StatelessWidget {
                           width: _s(context, 72).clamp(64.0, 96.0),
                           height: _s(context, 72).clamp(64.0, 96.0),
                           decoration: BoxDecoration(
-                            color: _fieldFill,
+                            color: AppColors.fieldFill,
                             shape: BoxShape.circle,
                             border: Border.all(
-                                color: _border, width: 1.5),
+                                color: AppColors.border, width: 1.5),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -394,7 +186,7 @@ class _LoggedInProfile extends StatelessWidget {
                               fontFamily: AppFonts.body,
                               fontSize: _s(context, 24).clamp(20.0, 32.0),
                               fontWeight: FontWeight.w900,
-                              color: _primary,
+                              color: AppColors.primary,
                             ),
                           ),
                         ),
@@ -405,11 +197,11 @@ class _LoggedInProfile extends StatelessWidget {
                               : 'HEY!',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontFamily: _fHead,
+                            fontFamily: AppFonts.heading,
                             fontSize: _s(context, 22).clamp(18.0, 30.0),
                             fontWeight: FontWeight.w500,
                             fontStyle: FontStyle.italic,
-                            color: _primary,
+                            color: AppColors.primary,
                           ),
                         ),
                         SizedBox(height: _s(context, 28)),
@@ -467,8 +259,6 @@ class _LoggedInProfile extends StatelessWidget {
 class _MoreSection extends StatelessWidget {
   const _MoreSection({required this.showSignOut});
   final bool showSignOut;
-
-  static const String _fHead = AppFonts.heading;
 
   void _openWebView(BuildContext context, {
     required String title,
@@ -627,7 +417,7 @@ class _MoreSection extends StatelessWidget {
               child: Text(
                 'MORE',
                 style: TextStyle(
-                  fontFamily: _fHead,
+                  fontFamily: AppFonts.heading,
                   fontSize: _s(context, 22).clamp(18.0, 30.0),
                   fontWeight: FontWeight.w500,
                   fontStyle: FontStyle.italic,
@@ -645,7 +435,7 @@ class _MoreSection extends StatelessWidget {
               onTap: () => _openWebView(
                 context,
                 title: 'Data & Privacy',
-                url: 'https://rookiesjeans.com/policies/privacy-policy',
+                url: '${ShopifyConstants.storeUrl}/policies/privacy-policy',
               ),
             ),
             _MoreTile(
@@ -653,7 +443,7 @@ class _MoreSection extends StatelessWidget {
               onTap: () => _openWebView(
                 context,
                 title: 'Return & Refund Policy',
-                url: 'https://rookiesjeans.com/policies/refund-policy',
+                url: '${ShopifyConstants.storeUrl}/policies/refund-policy',
               ),
             ),
             _MoreTile(
@@ -661,7 +451,7 @@ class _MoreSection extends StatelessWidget {
               onTap: () => _openWebView(
                 context,
                 title: 'Shipping Policy',
-                url: 'https://rookiesjeans.com/policies/shipping-policy',
+                url: '${ShopifyConstants.storeUrl}/policies/shipping-policy',
               ),
             ),
             _MoreTile(
@@ -669,7 +459,7 @@ class _MoreSection extends StatelessWidget {
               onTap: () => _openWebView(
                 context,
                 title: 'Store Locator',
-                url: 'https://rookiesjeans.com/pages/store-locator',
+                url: '${ShopifyConstants.storeUrl}/pages/store-locator',
               ),
             ),
             _MoreTile(
@@ -677,7 +467,7 @@ class _MoreSection extends StatelessWidget {
               onTap: () => _openWebView(
                 context,
                 title: 'Track Your Order',
-                url: 'https://rookiesjeans.shiprocket.co/',
+                url: ShopifyConstants.shiprocketUrl,
               ),
             ),
             if (showSignOut)
@@ -715,8 +505,6 @@ class _MoreTile extends StatelessWidget {
   final IconData?    icon;
   final String?      trailingText;
 
-  static const String _fBody = AppFonts.body;
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -738,7 +526,7 @@ class _MoreTile extends StatelessWidget {
                   child: Text(
                     label,
                     style: TextStyle(
-                      fontFamily: _fBody,
+                      fontFamily: AppFonts.body,
                       fontSize: _s(context, 14).clamp(13.0, 18.0),
                       color: AppColors.primary,
                       fontWeight: FontWeight.w400,
@@ -749,7 +537,7 @@ class _MoreTile extends StatelessWidget {
                   Text(
                     trailingText!,
                     style: TextStyle(
-                      fontFamily: _fBody,
+                      fontFamily: AppFonts.body,
                       fontSize: _s(context, 13).clamp(12.0, 16.0),
                       color: AppColors.hint,
                     ),
@@ -782,8 +570,6 @@ class _QuickAction extends StatelessWidget {
   final Color    color;
   final String   route;
 
-  static const String _fBody = AppFonts.body;
-
   @override
   Widget build(BuildContext context) {
     final circle = _s(context, 56).clamp(48.0, 72.0);
@@ -798,7 +584,7 @@ class _QuickAction extends StatelessWidget {
               width: circle,
               height: circle,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.08),
+                color: color.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon,
@@ -811,7 +597,7 @@ class _QuickAction extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontFamily: _fBody,
+                fontFamily: AppFonts.body,
                 fontSize: _s(context, 11).clamp(10.0, 14.0),
                 color: AppColors.secondaryText,
                 height: 1.35,

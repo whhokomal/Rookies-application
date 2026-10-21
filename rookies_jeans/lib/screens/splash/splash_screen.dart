@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _onVideoTick() {
     final value = _controller.value;
-    if (value.  hasError) {
+    if (value.hasError) {
       _goHome();
       return;
     }
@@ -73,7 +73,6 @@ class _SplashScreenState extends State<SplashScreen> {
       debugPrint('SplashScreen: start-up not finished ($e)');
     }
     if (!mounted) return;
-    // context.go(loggedIn ? '/home' : '/login');
     context.go('/home');
   }
 

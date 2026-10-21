@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/models/product_model.dart';
 import 'package:rookies_jeans/screens/collections/collections.dart';
 import 'package:rookies_jeans/screens/products/product_detail_page.dart';
 import 'package:rookies_jeans/services/wishlist_service.dart';
-import 'package:rookies_jeans/widget/price_text.dart';
+import 'package:rookies_jeans/widgets/price_text.dart';
 
 class WishlistPage extends StatefulWidget {
   const WishlistPage({super.key});
@@ -16,18 +16,6 @@ class WishlistPage extends StatefulWidget {
 }
 
 class _WishlistPageState extends State<WishlistPage> {
-  static Color get primary      => AppColors.primary;
-  static Color get bgColor      => AppColors.bg;
-  static Color get cardColor    => AppColors.card;
-  static Color get secondaryTxt => AppColors.secondaryText;
-  static Color get borderColor  => AppColors.border;
-  static Color get fieldFill    => AppColors.fieldFill;
-  static Color get hintColor    => AppColors.hint;
-
-  static const String _fHead = AppFonts.heading;
-  static const String _fBody = AppFonts.body;
-  static const String _fBold = AppFonts.bold;
-
   double _s(double base) =>
       Responsive.of(context, baseW: 400, maxScale: 1.25).s(base);
 
@@ -45,9 +33,9 @@ class _WishlistPageState extends State<WishlistPage> {
     return AnimatedBuilder(
       animation: ThemeService.instance,
       builder: (context, _) => Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: cardColor,
+        backgroundColor: AppColors.card,
         elevation: 0,
         centerTitle: false,
         automaticallyImplyLeading: false,
@@ -58,7 +46,7 @@ class _WishlistPageState extends State<WishlistPage> {
               icon: Icon(
                 Icons.arrow_back_ios_new_rounded,
                 size: 18,
-                color: primary,
+                color: AppColors.primary,
               ),
               onPressed: () {
                 if (context.canPop()) {
@@ -76,9 +64,9 @@ class _WishlistPageState extends State<WishlistPage> {
                 style: TextStyle(
                   fontSize: titleSize,
                   height: 1,
-                  fontFamily: _fHead,
+                  fontFamily: AppFonts.heading,
                   fontStyle: FontStyle.italic,
-                  color: primary,
+                  color: AppColors.primary,
                   // letterSpacing: 1.4,
                 ),
               ),
@@ -130,17 +118,17 @@ class _WishlistPageState extends State<WishlistPage> {
             Icon(
               Icons.favorite_border_rounded,
               size: _s(70),
-              color: hintColor,
+              color: AppColors.hint,
             ),
             const SizedBox(height: 16),
             Text(
               'No wishlist items yet',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: _fHead,
+                fontFamily: AppFonts.heading,
                 fontSize: _s(22),
                 fontWeight: FontWeight.w500,
-                color: primary,
+                color: AppColors.primary,
               ),
             ),
             const SizedBox(height: 8),
@@ -148,9 +136,9 @@ class _WishlistPageState extends State<WishlistPage> {
               'Products you like will appear here.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: _fBody,
+                fontFamily: AppFonts.body,
                 fontSize: _s(13),
-                color: secondaryTxt,
+                color: AppColors.secondaryText,
                 height: 1.5,
               ),
             ),
@@ -162,8 +150,8 @@ class _WishlistPageState extends State<WishlistPage> {
                 onPressed: _openExploreProducts,
                 style: OutlinedButton.styleFrom(
                   backgroundColor: Colors.transparent,
-                  foregroundColor: primary,
-                  side: BorderSide(color: primary, width: 1.1),
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(color: AppColors.primary, width: 1.1),
                   shape: const RoundedRectangleBorder(
                       // borderRadius: BorderRadius.circular(6),
                       ),
@@ -172,11 +160,11 @@ class _WishlistPageState extends State<WishlistPage> {
                 child: Text(
                   'EXPLORE PRODUCT',
                   style: TextStyle(
-                    fontFamily: _fBold,
+                    fontFamily: AppFonts.bold,
                     fontSize: _s(11),
                     fontWeight: FontWeight.w800,
                     // letterSpacing: 1.1,
-                    color: primary,
+                    color: AppColors.primary,
                   ),
                 ),
               ),
@@ -215,9 +203,9 @@ class _WishlistPageState extends State<WishlistPage> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: cardColor,
+          color: AppColors.card,
           // borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: borderColor, width: 0.8),
+          border: Border.all(color: AppColors.border, width: 0.8),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,25 +219,25 @@ class _WishlistPageState extends State<WishlistPage> {
                           ? CachedNetworkImage(
                               imageUrl: imageUrl,
                               fit: BoxFit.cover,
-                              placeholder: (_, __) =>
-                                  Container(color: fieldFill),
-                              errorWidget: (_, __, ___) => Container(
-                                color: fieldFill,
+                              placeholder: (_, _) =>
+                                  Container(color: AppColors.fieldFill),
+                              errorWidget: (_, _, _) => Container(
+                                color: AppColors.fieldFill,
                                 alignment: Alignment.center,
                                 child: Icon(
                                   Icons.image_not_supported_outlined,
                                   size: 32,
-                                  color: hintColor,
+                                  color: AppColors.hint,
                                 ),
                               ),
                             )
                           : Container(
-                              color: fieldFill,
+                              color: AppColors.fieldFill,
                               alignment: Alignment.center,
                               child: Icon(
                                 Icons.image_not_supported_outlined,
                                 size: 32,
-                                color: hintColor,
+                                color: AppColors.hint,
                               ),
                             ),
                     ),
@@ -268,7 +256,7 @@ class _WishlistPageState extends State<WishlistPage> {
                         child: Text(
                           _discountPercent(product),
                           style: TextStyle(
-                            fontFamily: _fBold,
+                            fontFamily: AppFonts.bold,
                             color: Colors.white,
                             fontSize: _s(9),
                             fontWeight: FontWeight.w800,
@@ -288,7 +276,7 @@ class _WishlistPageState extends State<WishlistPage> {
                         width: 32,
                         height: 32,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.95),
+                          color: Colors.white.withValues(alpha: 0.95),
                           shape: BoxShape.circle,
                         ),
                         alignment: Alignment.center,
@@ -313,10 +301,10 @@ class _WishlistPageState extends State<WishlistPage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontFamily: _fBody,
+                      fontFamily: AppFonts.body,
                       fontSize: _s(12),
                       fontWeight: FontWeight.w700,
-                      color: primary,
+                      color: AppColors.primary,
                       height: 1.35,
                     ),
                   ),
@@ -333,7 +321,7 @@ class _WishlistPageState extends State<WishlistPage> {
 
   Widget _priceBlock(ShopifyProduct product) {
     if (!_isOnSale(product)) {
-      return PriceText(_formattedPrice(product), currencyCode: product.currencyCode, fontSize: _s(14), fontWeight: FontWeight.w800, amountFontFamily: _fBody, color: primary);
+      return PriceText(_formattedPrice(product), currencyCode: product.currencyCode, fontSize: _s(14), fontWeight: FontWeight.w800, amountFontFamily: AppFonts.body, color: AppColors.primary);
     }
 
     final saved = ((product.compareAtPrice ?? 0) - product.price).round();
@@ -345,12 +333,12 @@ class _WishlistPageState extends State<WishlistPage> {
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 6,
           children: [
-            PriceText(_formattedCompareAtPrice(product), currencyCode: product.currencyCode, fontSize: _s(10), color: secondaryTxt, amountFontFamily: _fBody, decoration: TextDecoration.lineThrough),
-            PriceText(_formattedPrice(product), currencyCode: product.currencyCode, fontSize: _s(12), fontWeight: FontWeight.w800, amountFontFamily: _fBody, color: primary),
+            PriceText(_formattedCompareAtPrice(product), currencyCode: product.currencyCode, fontSize: _s(10), color: AppColors.secondaryText, amountFontFamily: AppFonts.body, decoration: TextDecoration.lineThrough),
+            PriceText(_formattedPrice(product), currencyCode: product.currencyCode, fontSize: _s(12), fontWeight: FontWeight.w800, amountFontFamily: AppFonts.body, color: AppColors.primary),
           ],
         ),
         const SizedBox(height: 4),
-        SavedAmountText(saved.toString(), currencyCode: product.currencyCode, fontSize: _s(9), fontWeight: FontWeight.w600, color: AppColors.success, fontFamily: _fBold),
+        SavedAmountText(saved.toString(), currencyCode: product.currencyCode, fontSize: _s(9), fontWeight: FontWeight.w600, color: AppColors.success, fontFamily: AppFonts.bold),
       ],
     );
   }

@@ -3,7 +3,7 @@ import 'dart:math' show min;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/models/cart_model.dart';
 import 'package:rookies_jeans/models/product_model.dart';
 import 'package:rookies_jeans/screens/cart/checkout_flow.dart';
@@ -12,8 +12,8 @@ import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/services/product_pairings.dart';
 import 'package:rookies_jeans/services/recently_viewed_service.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
-import 'package:rookies_jeans/widget/price_text.dart';
-import 'package:rookies_jeans/widget/product_row_section.dart';
+import 'package:rookies_jeans/widgets/price_text.dart';
+import 'package:rookies_jeans/widgets/product_row_section.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -23,19 +23,6 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  static Color get primary => AppColors.primary;
-  static Color get onPrimary => AppColors.onPrimary;
-  static Color get bgColor => AppColors.bg;
-  static Color get cardColor => AppColors.card;
-  static Color get secondaryTxt => AppColors.secondaryText;
-  static Color get borderColor => AppColors.border;
-  static Color get fieldFill => AppColors.fieldFill;
-  static Color get hintColor => AppColors.hint;
-
-  static const String _fHead = AppFonts.heading;
-  static const String _fBody = AppFonts.body;
-  static const String _fBold = AppFonts.bold;
-
   double _s(double base) =>
       Responsive.of(context, baseW: 400, maxScale: 1.3).s(base);
 
@@ -150,7 +137,7 @@ class _CartScreenState extends State<CartScreen> {
     if (!mounted) return;
     setState(() => _pendingLineIds.remove(line.lineId));
     if (!ok) {
-      _showToast('Could not update quantity. Try again.', isError: true);
+      _showToast(CartService.instance.lastError ?? 'Could not update quantity. Try again.', isError: true);
     }
   }
 
@@ -197,7 +184,7 @@ class _CartScreenState extends State<CartScreen> {
     return AnimatedBuilder(
       animation: ThemeService.instance,
       builder: (context, _) => Scaffold(
-        backgroundColor: bgColor,
+        backgroundColor: AppColors.bg,
         body: SafeArea(
           child: AnimatedBuilder(
             animation: CartService.instance,
@@ -231,7 +218,7 @@ class _CartScreenState extends State<CartScreen> {
                             SizedBox(
                               height: topHeight,
                               child: RefreshIndicator(
-                                color: primary,
+                                color: AppColors.primary,
                                 onRefresh: () => CartService.instance.refresh(),
                                 child: isLoading && cart.lines.isEmpty
                                     ? _loadingState()
@@ -243,7 +230,7 @@ class _CartScreenState extends State<CartScreen> {
                             Divider(
                               height: 1,
                               thickness: 1,
-                              color: borderColor,
+                              color: AppColors.border,
                             ),
                             // Fixed gap so scrolled suggestions never run
                             // right up against the divider.
@@ -274,7 +261,7 @@ class _CartScreenState extends State<CartScreen> {
       40.0,
     );
     return Container(
-      color: cardColor,
+      color: AppColors.card,
       height: _topBarHeight,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: _centered(
@@ -282,7 +269,7 @@ class _CartScreenState extends State<CartScreen> {
           children: [
             IconButton(
               icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-              color: primary,
+              color: AppColors.primary,
               onPressed: () {
                 if (context.canPop()) {
                   context.pop();
@@ -299,9 +286,9 @@ class _CartScreenState extends State<CartScreen> {
                 style: TextStyle(
                   fontSize: titleSize,
                   height: 1,
-                  fontFamily: _fHead,
+                  fontFamily: AppFonts.heading,
                   fontStyle: FontStyle.italic,
-                  color: primary,
+                  color: AppColors.primary,
                   // letterSpacing: 1.8,
                 ),
                 maxLines: 1,
@@ -316,7 +303,7 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _loadingState() =>
-      Center(child: CircularProgressIndicator(color: primary));
+      Center(child: CircularProgressIndicator(color: AppColors.primary));
 
   Widget _emptyState() => LayoutBuilder(
     builder: (context, constraints) => SingleChildScrollView(
@@ -332,17 +319,17 @@ class _CartScreenState extends State<CartScreen> {
                 Icon(
                   Icons.shopping_bag_outlined,
                   size: _s(40),
-                  color: hintColor,
+                  color: AppColors.hint,
                 ),
                 SizedBox(height: _s(8)),
                 Text(
                   'No items in your cart',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: _fBody,
+                    fontFamily: AppFonts.body,
                     fontSize: _s(20),
                     fontWeight: FontWeight.w800,
-                    color: primary,
+                    color: AppColors.primary,
                   ),
                 ),
                 SizedBox(height: _s(6)),
@@ -350,9 +337,9 @@ class _CartScreenState extends State<CartScreen> {
                   'Items you add will show up here.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: _fBody,
+                    fontFamily: AppFonts.body,
                     fontSize: _s(12),
-                    color: secondaryTxt,
+                    color: AppColors.secondaryText,
                   ),
                 ),
               ],
@@ -436,18 +423,18 @@ class _CartScreenState extends State<CartScreen> {
                             // when the box is shorter, keeping the face.
                             fit: BoxFit.cover,
                             alignment: Alignment.topCenter,
-                            placeholder: (_, __) => Container(color: fieldFill),
-                            errorWidget: (_, __, ___) => Container(
-                              color: fieldFill,
+                            placeholder: (_, _) => Container(color: AppColors.fieldFill),
+                            errorWidget: (_, _, _) => Container(
+                              color: AppColors.fieldFill,
                               alignment: Alignment.center,
                               child: Icon(
                                 Icons.image_not_supported_outlined,
                                 size: 32,
-                                color: hintColor,
+                                color: AppColors.hint,
                               ),
                             ),
                           )
-                        : Container(color: fieldFill),
+                        : Container(color: AppColors.fieldFill),
                   ),
                 ],
               ),
@@ -462,10 +449,10 @@ class _CartScreenState extends State<CartScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontFamily: _fBody,
+                      fontFamily: AppFonts.body,
                       fontSize: _s(11),
                       fontWeight: FontWeight.w700,
-                      color: primary,
+                      color: AppColors.primary,
                       height: 1.3,
                     ),
                   ),
@@ -477,9 +464,9 @@ class _CartScreenState extends State<CartScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontFamily: _fBody,
+                        fontFamily: AppFonts.body,
                         fontSize: _s(9),
-                        color: secondaryTxt,
+                        color: AppColors.secondaryText,
                       ),
                     ),
                   ],
@@ -494,8 +481,8 @@ class _CartScreenState extends State<CartScreen> {
                           currencyCode: line.currencyCode,
                           fontSize: _s(12),
                           fontWeight: FontWeight.w800,
-                          amountFontFamily: _fBody,
-                          color: primary,
+                          amountFontFamily: AppFonts.body,
+                          color: AppColors.primary,
                         ),
                       ),
                       if (!line.availableForSale) ...[
@@ -503,7 +490,7 @@ class _CartScreenState extends State<CartScreen> {
                         Text(
                           'Out of stock',
                           style: TextStyle(
-                            fontFamily: _fBold,
+                            fontFamily: AppFonts.bold,
                             fontSize: _s(9),
                             fontWeight: FontWeight.w700,
                             color: AppColors.danger,
@@ -528,7 +515,7 @@ class _CartScreenState extends State<CartScreen> {
                               child: Icon(
                                 Icons.delete_outline_rounded,
                                 size: _s(17),
-                                color: secondaryTxt,
+                                color: AppColors.secondaryText,
                               ),
                             ),
                     ],
@@ -615,7 +602,7 @@ class _CartScreenState extends State<CartScreen> {
 
   Widget _qtyStepper(ShopifyCartLine line, bool isPending) => Container(
     decoration: BoxDecoration(
-      border: Border.all(color: borderColor),
+      border: Border.all(color: AppColors.border),
       // borderRadius: BorderRadius.circular(6),
     ),
     child: Row(
@@ -633,10 +620,10 @@ class _CartScreenState extends State<CartScreen> {
             '${line.quantity}',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: _fBold,
+              fontFamily: AppFonts.bold,
               fontSize: _s(11),
               fontWeight: FontWeight.w700,
-              color: primary,
+              color: AppColors.primary,
             ),
           ),
         ),
@@ -656,14 +643,14 @@ class _CartScreenState extends State<CartScreen> {
         child: SizedBox(
           width: _s(22).clamp(22.0, 32.0),
           height: _s(22).clamp(22.0, 32.0),
-          child: Icon(icon, size: _s(12), color: primary),
+          child: Icon(icon, size: _s(12), color: AppColors.primary),
         ),
       );
 
   Widget _checkoutBar(ShopifyCart cart) => Container(
     decoration: BoxDecoration(
-      color: cardColor,
-      border: Border(top: BorderSide(color: borderColor)),
+      color: AppColors.card,
+      border: Border(top: BorderSide(color: AppColors.border)),
     ),
     child: SafeArea(
       top: false,
@@ -679,10 +666,10 @@ class _CartScreenState extends State<CartScreen> {
                     Text(
                       'SUBTOTAL',
                       style: TextStyle(
-                        fontFamily: _fBold,
+                        fontFamily: AppFonts.bold,
                         fontSize: _s(10),
                         fontWeight: FontWeight.w700,
-                        color: secondaryTxt,
+                        color: AppColors.secondaryText,
                         // letterSpacing: 1.0,
                       ),
                     ),
@@ -693,10 +680,10 @@ class _CartScreenState extends State<CartScreen> {
                       child: Text(
                         cart.formattedSubtotal,
                         style: TextStyle(
-                          fontFamily: _fBold,
+                          fontFamily: AppFonts.bold,
                           fontSize: _s(17),
                           fontWeight: FontWeight.w800,
-                          color: primary,
+                          color: AppColors.primary,
                         ),
                       ),
                     ),
@@ -709,8 +696,8 @@ class _CartScreenState extends State<CartScreen> {
                     ? null
                     : _checkout,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  foregroundColor: onPrimary,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
                   shape: AppShapes.button,
                   elevation: 0,
                   padding: EdgeInsets.symmetric(
@@ -724,16 +711,16 @@ class _CartScreenState extends State<CartScreen> {
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: onPrimary,
+                          color: AppColors.onPrimary,
                         ),
                       )
                     : Text(
                         'CHECKOUT',
                         style: TextStyle(
-                          fontFamily: _fBold,
+                          fontFamily: AppFonts.bold,
                           fontSize: _s(13),
                           fontWeight: FontWeight.w800,
-                          color: onPrimary,
+                          color: AppColors.onPrimary,
                           // letterSpacing: 1.5,
                         ),
                       ),

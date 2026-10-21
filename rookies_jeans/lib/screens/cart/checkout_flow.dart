@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:rookies_jeans/models/address_model.dart';
 import 'package:rookies_jeans/models/cart_model.dart';
-import 'package:rookies_jeans/screens/authentication/login.dart';
+import 'package:rookies_jeans/screens/authentication/login_screen.dart';
 import 'package:rookies_jeans/screens/cart/checkout.dart';
 import 'package:rookies_jeans/screens/profile/address_book.dart';
 import 'package:rookies_jeans/services/address_service.dart';
@@ -23,7 +23,7 @@ Future<bool> runCheckoutFlow(
   if (!isLoggedIn) {
     final loggedInNow = await navigator.push<bool>(
       MaterialPageRoute(
-        builder: (_) => const Login(isCheckoutFlow: true),
+        builder: (_) => const LoginScreen(isCheckoutFlow: true),
       ),
     );
     if (loggedInNow != true || !context.mounted) return false;

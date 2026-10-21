@@ -32,7 +32,7 @@ class RecentlyViewedService extends ChangeNotifier {
       for (final entry in jsonDecode(raw) as List) {
         // Skip a corrupt entry rather than losing the whole list.
         try {
-          saved.add(_fromJson(entry as Map<String, dynamic>));
+          saved.add(ShopifyProduct.fromCardJson(entry as Map<String, dynamic>));
         } catch (e) {
           debugPrint('RecentlyViewedService skipped entry: $e');
         }
@@ -69,32 +69,9 @@ class RecentlyViewedService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-          _prefsKey, jsonEncode(_items.map(_toJson).toList()));
+          _prefsKey, jsonEncode(_items.map((p) => p.toCardJson()).toList()));
     } catch (e) {
       debugPrint('RecentlyViewedService save error: $e');
     }
   }
-
-  // Only what a product card needs; price is as seen when last opened.
-  static Map<String, dynamic> _toJson(ShopifyProduct p) => {
-        'id': p.id,
-        'title': p.title,
-        'handle': p.handle,
-        'price': p.price,
-        'compareAtPrice': p.compareAtPrice,
-        'currencyCode': p.currencyCode,
-        'imageUrls': p.imageUrls,
-      };
-
-  static ShopifyProduct _fromJson(Map<String, dynamic> json) => ShopifyProduct(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        handle: json['handle'] as String,
-        price: (json['price'] as num).toDouble(),
-        compareAtPrice: (json['compareAtPrice'] as num?)?.toDouble(),
-        currencyCode: json['currencyCode'] as String,
-        imageUrls: List<String>.from(json['imageUrls'] as List),
-        variants: const [],
-        options: const [],
-      );
 }

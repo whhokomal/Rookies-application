@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 
 class ShopifyConstants {
   ShopifyConstants._();
@@ -30,7 +29,7 @@ class ShopifyConstants {
   static const String msg91TokenAuth = '427260TfO1MVHhWyvx66a9d56bP1';
 
   /// OTP login backend (otp_login_worker/): on Vercel
-  /// "https://<project>.vercel.app/api", on Cloudflare the worker URL.
+  /// `https://<project>.vercel.app/api`, on Cloudflare the worker URL.
   static const String otpLoginUrl =
       'https://otploginworker.vercel.app/api';
 
@@ -38,7 +37,7 @@ class ShopifyConstants {
   /// by the worker against its REVIEW_OTP secret (must match REVIEW_PHONE).
   static const String reviewPhone = '+916123450987';
 
-  static const String storeUrl      ='https://rookiesjeans.com';
+  static const String storeUrl      = 'https://rookiesjeans.com';
   static const String shiprocketUrl  = 'https://rookiesjeans.shiprocket.co/';
 
   static const String fontHeading    = 'Anton';
@@ -50,33 +49,8 @@ class ShopifyConstants {
   static const String fontNumber     = fontBody;
   static const String fontRupee      = 'Serif4';
 
-  static const TextStyle tsHeading = TextStyle(
-    fontFamily: fontHeading,
-    color: Color(primaryColorHex),
-  );
-
-  static const TextStyle tsBody = TextStyle(
-    fontFamily: fontBody,
-    color: Color(primaryColorHex),
-  );
-
-  static const TextStyle tsBold = TextStyle(
-    fontFamily: fontBodyBold,
-    color: Color(primaryColorHex),
-  );
-
-  static const String latestDropHandle       = 'new-arrivals';
-  static const String cargosHandle           = 'CARGOS';
-  static const String jeansHandle            = 'JEANS';
-  static const String shirtsHandle           = 'SHIRTS';
-  static const String tshirtsHandle          = 'TSHIRTS';
-  static const String linensHandle           = 'LINENS';
-  static const String shortsHandle           = 'SHORTS';
-  static const String hotDealsHandle         = 'hot-deals';
-  static const String summerEditHandle       = 'summer-edit';
-  static const String trendingNowHandle      = 'trending-now';
-  static const String balloonCargosHandle    = 'BALLOON FIT CARGO';
-  static const String oversizedShirtsHandle  = 'oversized-shirts';
+  static const String hotDealsHandle    = 'hot-deals';
+  static const String trendingNowHandle = 'trending-now';
 
   /// Shopify navigation menus (Online Store → Menus) that drive Explore
   /// Categories and the Collections tab, in display order. Each item links
@@ -195,40 +169,9 @@ class ShopifyConstants {
     },
   ];
 
-  static const List<Map<String, String>> exploreCategories = [
-    {'handle': cargosHandle,   'label': 'CARGOS'},
-    {'handle': jeansHandle,    'label': 'JEANS'},
-    {'handle': shirtsHandle,   'label': 'SHIRTS'},
-    {'handle': tshirtsHandle,  'label': 'TSHIRTS'},
-    {'handle': linensHandle,   'label': 'LINENS'},
-    {'handle': 'CHINOS',       'label': 'CHINOS'},
-    {'handle': shortsHandle,   'label': 'SHORTS'},
-    {'handle': 'polo-tees',    'label': 'POLO TEES'},
-  ];
-
-  static const List<Map<String, String>> latestDropCollections = [
-    {'handle': tshirtsHandle,       'label': 'Oversized Tees'},
-    {'handle': cargosHandle,        'label': 'Balloon Fit Pants'},
-    {'handle': linensHandle,        'label': 'Linens'},
-    {'handle': shortsHandle,        'label': 'Shorts'},
-    {'handle': jeansHandle,         'label': 'Jeans'},
-    {'handle': shirtsHandle,        'label': 'Shirts'},
-    {'handle': balloonCargosHandle, 'label': 'Balloon Fit Pants'},
-  ];
-
-  static const List<Map<String, String>> ourCollectionTiles = [
-    {'handle': summerEditHandle,  'label': 'SUMMER EDIT'},
-    {'handle': hotDealsHandle,    'label': 'HOT DEALS'},
-    {'handle': trendingNowHandle, 'label': 'TRENDING NOW'},
-  ];
-
-  static const int latestDropCount      = 6;
-  static const int hotDealsCount        = 4;
-  static const int oversizedShirtsCount = 10;
-
   static const int primaryColorHex   = 0xFF111111;
   static const int accentOrangeHex   = 0xFFFF6B00;
-  static const int bgColorHex        = 0xFFF5F5F5;
+  static const int bgColorHex        = 0xFFFFFFFF;
   static const int cardColorHex      = 0xFFFFFFFF;
   static const int secondaryTextHex  = 0xFF6B6B6B;
   static const int borderColorHex    = 0xFFDDDDDD;

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/models/product_model.dart';
 import 'package:rookies_jeans/screens/products/product_detail_page.dart';
-import 'package:rookies_jeans/widget/price_text.dart';
-import 'package:rookies_jeans/widget/wishlist_heart_button.dart';
+import 'package:rookies_jeans/widgets/price_text.dart';
+import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
 
 /// Tilted heading + horizontally scrolling product cards ("Goes Well With",
 /// "You May Also Like", "Recently Viewed"). Tapping a card opens the product.
@@ -17,13 +17,6 @@ class ProductRowSection extends StatelessWidget {
 
   final String title;
   final List<ShopifyProduct> products;
-
-  static Color get primary => AppColors.primary;
-  static Color get secondaryTxt => AppColors.secondaryText;
-  static Color get fieldFill => AppColors.fieldFill;
-
-  static const String _fHeading = AppFonts.heading;
-  static const String _fBody = AppFonts.body;
 
   @override
   Widget build(BuildContext context) {
@@ -47,9 +40,9 @@ class ProductRowSection extends StatelessWidget {
               child: Text(
                 title,
                 style: TextStyle(
-                  fontFamily: _fHeading,
+                  fontFamily: AppFonts.heading,
                   fontSize: s(22).clamp(20.0, 28.0),
-                  color: primary,
+                  color: AppColors.primary,
                 ),
               ),
             ),
@@ -63,7 +56,7 @@ class ProductRowSection extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.only(right: 16),
               itemCount: products.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              separatorBuilder: (_, _) => const SizedBox(width: 6),
               itemBuilder: (_, i) =>
                   _card(context, s, products[i], cardWidth, imgHeight),
             ),
@@ -109,11 +102,11 @@ class ProductRowSection extends StatelessWidget {
                             imageUrl: product.primaryImageUrl!,
                             fit: BoxFit.cover,
                             alignment: Alignment.topCenter,
-                            placeholder: (_, __) => Container(color: fieldFill),
-                            errorWidget: (_, __, ___) =>
-                                Container(color: fieldFill),
+                            placeholder: (_, _) => Container(color: AppColors.fieldFill),
+                            errorWidget: (_, _, _) =>
+                                Container(color: AppColors.fieldFill),
                           )
-                        : Container(color: fieldFill),
+                        : Container(color: AppColors.fieldFill),
                     Positioned(
                       top: 2,
                       right: 2,
@@ -133,9 +126,9 @@ class ProductRowSection extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontFamily: _fBody,
+                fontFamily: AppFonts.body,
                 fontSize: s(11),
-                color: primary,
+                color: AppColors.primary,
                 height: 1.3,
               ),
             ),
@@ -153,8 +146,8 @@ class ProductRowSection extends StatelessWidget {
         product.formattedPrice,
         currencyCode: product.currencyCode,
         fontSize: s(11),
-        color: primary,
-        amountFontFamily: _fBody,
+        color: AppColors.primary,
+        amountFontFamily: AppFonts.body,
       );
     }
     return Row(
@@ -164,7 +157,7 @@ class ProductRowSection extends StatelessWidget {
             product.formattedPrice,
             currencyCode: product.currencyCode,
             fontSize: s(11),
-            color: primary,
+            color: AppColors.primary,
           ),
         ),
         const SizedBox(width: 5),
@@ -173,7 +166,7 @@ class ProductRowSection extends StatelessWidget {
             product.formattedCompareAtPrice,
             currencyCode: product.currencyCode,
             fontSize: s(10),
-            color: secondaryTxt,
+            color: AppColors.secondaryText,
             decoration: TextDecoration.lineThrough,
           ),
         ),

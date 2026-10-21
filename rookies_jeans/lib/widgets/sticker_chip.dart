@@ -1,8 +1,8 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
-import 'package:rookies_jeans/widget/slant_chip.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
+import 'package:rookies_jeans/widgets/slant_chip.dart';
 
 /// [mini] is a compact version of [small] (the home Explore Collections tabs);
 /// [largeCompact] is a smaller [large] (the home Explore category chips).
@@ -231,7 +231,7 @@ class GlassFilterPill extends StatelessWidget {
                       height: 1,
                       color: option.selected
                           ? SlantChip.accent
-                          : ink.withOpacity(0.7),
+                          : ink.withValues(alpha: 0.7),
                       // Thin same-colour shadows either side thicken the
                       // strokes so the selection reads as bold even where
                       // the wght axis renders lighter than expected.
@@ -286,11 +286,11 @@ class _GlassCaption extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 borderRadius: radius,
-                color: (dark ? Colors.white : Colors.black).withOpacity(0.04),
+                color: (dark ? Colors.white : Colors.black).withValues(alpha: 0.04),
                 border: Border.all(
                   color: dark
-                      ? Colors.white.withOpacity(0.18)
-                      : Colors.black.withOpacity(0.10),
+                      ? Colors.white.withValues(alpha: 0.18)
+                      : Colors.black.withValues(alpha: 0.10),
                 ),
               ),
               // Top-lit sheen, painted over the tint.
@@ -300,8 +300,8 @@ class _GlassCaption extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.white.withOpacity(dark ? 0.12 : 0.55),
-                    Colors.white.withOpacity(0.0),
+                    Colors.white.withValues(alpha: dark ? 0.12 : 0.55),
+                    Colors.white.withValues(alpha: 0.0),
                   ],
                   stops: const [0.0, 0.6],
                 ),
@@ -329,9 +329,9 @@ class _GlassCaption extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.white.withOpacity(0.0),
-                        Colors.white.withOpacity(0.9),
-                        Colors.white.withOpacity(0.0),
+                        Colors.white.withValues(alpha: 0.0),
+                        Colors.white.withValues(alpha: 0.9),
+                        Colors.white.withValues(alpha: 0.0),
                       ],
                     ),
                   ),

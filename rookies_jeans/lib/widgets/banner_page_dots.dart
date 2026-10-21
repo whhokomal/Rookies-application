@@ -26,11 +26,11 @@ class BannerPageDots extends StatelessWidget {
             width: i == index ? 20 : 7,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(i == index ? 1.0 : 0.75),
+              color: Colors.white.withValues(alpha: i == index ? 1.0 : 0.75),
               borderRadius: BorderRadius.circular(4),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.35),
+                  color: Colors.black.withValues(alpha: 0.35),
                   blurRadius: 4,
                 ),
               ],

@@ -1,20 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rookies_jeans/constant/app_ui.dart';
-import 'package:rookies_jeans/screens/profile/profile.dart';
+import 'package:rookies_jeans/services/shopify_api.dart';
+import 'package:rookies_jeans/constants/app_ui.dart';
+import 'package:rookies_jeans/services/auth_service.dart';
 import 'package:rookies_jeans/services/shopify_auth_service.dart';
 
-class Register extends StatefulWidget {
-  const Register({super.key, this.isCheckoutFlow = false});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key, this.isCheckoutFlow = false});
 
   final bool isCheckoutFlow;
 
   @override
-  State<Register> createState() => _RegisterState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterState extends State<Register> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController firstNameController       = TextEditingController();
   final TextEditingController lastNameController        = TextEditingController();
   final TextEditingController emailController           = TextEditingController();
@@ -26,17 +27,6 @@ class _RegisterState extends State<Register> {
   bool isConfirmPasswordHidden = true;
   bool acceptsMarketing        = true;
   bool isLoading               = false;
-
-  static Color get bgColor       => AppColors.bg;
-  static Color get cardColor     => AppColors.card;
-  static Color get primary       => AppColors.primary;
-  static Color get onPrimary     => AppColors.onPrimary;
-  static Color get secondaryText => AppColors.secondaryText;
-  static Color get borderColor   => AppColors.border;
-  static Color get fieldFill     => AppColors.fieldFill;
-  static Color get hintColor     => AppColors.hint;
-
-  static const String _fBody = AppFonts.body;
 
   double _s(double base) =>
       Responsive.of(context, baseW: 400, maxScale: 1.3).s(base);
@@ -62,25 +52,25 @@ class _RegisterState extends State<Register> {
     return InputDecoration(
       hintText: hintText,
       hintStyle: TextStyle(
-        fontFamily: _fBody,
-        color: hintColor,
+        fontFamily: AppFonts.body,
+        color: AppColors.hint,
         fontSize: _s(14.5),
         fontWeight: FontWeight.w400,
       ),
-      prefixIcon: Icon(icon, color: secondaryText, size: _s(20)),
+      prefixIcon: Icon(icon, color: AppColors.secondaryText, size: _s(20)),
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: fieldFill,
+      fillColor: AppColors.fieldFill,
       contentPadding:
           EdgeInsets.symmetric(vertical: _s(18), horizontal: _s(16)),
       border: OutlineInputBorder(
-        borderSide: BorderSide(color: borderColor),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: borderColor, width: 1),
+        borderSide: BorderSide(color: AppColors.border, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: primary, width: 1.2),
+        borderSide: BorderSide(color: AppColors.primary, width: 1.2),
       ),
       errorBorder: const OutlineInputBorder(
         borderSide: BorderSide(color: Colors.redAccent),
@@ -91,10 +81,10 @@ class _RegisterState extends State<Register> {
   Widget _fieldLabel(String text) => Text(
         text,
         style: TextStyle(
-          fontFamily: _fBody,
+          fontFamily: AppFonts.body,
           fontSize: _s(14),
           fontWeight: FontWeight.w400,
-          color: primary,
+          color: AppColors.primary,
         ),
       );
 
@@ -161,13 +151,14 @@ class _RegisterState extends State<Register> {
         return;
       }
 
-      if (result.customer != null) {
-        AuthService.instance.signIn(
-          firstName: result.customer!.firstName ?? '',
-          lastName:  result.customer!.lastName  ?? '',
-          email:     result.customer!.email     ?? '',
-        );
+      if (result.accessToken == null) {
+        // Account created but not signed in (the store requires email
+        // activation first): say so and stay here.
+        _showMessage(result.message ?? 'Account created. Please sign in.');
+        return;
       }
+
+      AuthService.instance.signIn(result.customer);
 
       _showMessage(
         result.customer != null
@@ -188,7 +179,7 @@ class _RegisterState extends State<Register> {
       }
     } catch (e) {
       if (!mounted) return;
-      _showMessage('Something went wrong: $e');
+      _showMessage(kFriendlyNetworkError);
       if (kDebugMode) debugPrint('UI REGISTER EXCEPTION -> $e');
     } finally {
       if (mounted) setState(() => isLoading = false);
@@ -198,11 +189,11 @@ class _RegisterState extends State<Register> {
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: primary,
+        backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
         content: Text(
           message,
-          style: TextStyle(fontFamily: _fBody, color: onPrimary),
+          style: TextStyle(fontFamily: AppFonts.body, color: AppColors.onPrimary),
         ),
       ),
     );
@@ -220,7 +211,7 @@ class _RegisterState extends State<Register> {
       controller: firstNameController,
       keyboardType: TextInputType.name,
       textCapitalization: TextCapitalization.words,
-      style: TextStyle(fontFamily: _fBody, fontSize: _s(14.5)),
+      style: TextStyle(fontFamily: AppFonts.body, fontSize: _s(14.5)),
       decoration: inputDecoration(
         hintText: "First name",
         icon: Icons.person_outline_rounded,
@@ -231,7 +222,7 @@ class _RegisterState extends State<Register> {
       controller: lastNameController,
       keyboardType: TextInputType.name,
       textCapitalization: TextCapitalization.words,
-      style: TextStyle(fontFamily: _fBody, fontSize: _s(14.5)),
+      style: TextStyle(fontFamily: AppFonts.body, fontSize: _s(14.5)),
       decoration: inputDecoration(
         hintText: "Last name",
         icon: Icons.person_outline_rounded,
@@ -239,7 +230,7 @@ class _RegisterState extends State<Register> {
     );
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -249,11 +240,11 @@ class _RegisterState extends State<Register> {
               child: Container(
                 padding: EdgeInsets.all(_s(24)),
                 decoration: BoxDecoration(
-                  color: cardColor,
-                  border: Border.all(color: borderColor),
+                  color: AppColors.card,
+                  border: Border.all(color: AppColors.border),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 30,
                       offset: const Offset(0, 12),
                     ),
@@ -273,7 +264,7 @@ class _RegisterState extends State<Register> {
                               fontFamily: AppFonts.heading,
                               fontSize: _s(30),
                               fontWeight: FontWeight.w400,
-                              color: primary,
+                              color: AppColors.primary,
                             ),
                           ),
                           SizedBox(height: _s(8)),
@@ -281,10 +272,10 @@ class _RegisterState extends State<Register> {
                             "Join ROOKIES to start shopping",
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontFamily: _fBody,
+                              fontFamily: AppFonts.body,
                               fontSize: _s(15),
                               fontWeight: FontWeight.w400,
-                              color: secondaryText,
+                              color: AppColors.secondaryText,
                               height: 1.5,
                             ),
                           ),
@@ -318,7 +309,7 @@ class _RegisterState extends State<Register> {
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
-                      style: TextStyle(fontFamily: _fBody, fontSize: _s(14.5)),
+                      style: TextStyle(fontFamily: AppFonts.body, fontSize: _s(14.5)),
                       decoration: inputDecoration(
                         hintText: "Enter your email",
                         icon: Icons.mail_outline_rounded,
@@ -332,7 +323,7 @@ class _RegisterState extends State<Register> {
                     TextFormField(
                       controller: phoneController,
                       keyboardType: TextInputType.phone,
-                      style: TextStyle(fontFamily: _fBody, fontSize: _s(14.5)),
+                      style: TextStyle(fontFamily: AppFonts.body, fontSize: _s(14.5)),
                       decoration: inputDecoration(
                         hintText: "+91 phone number",
                         icon: Icons.phone_outlined,
@@ -346,7 +337,7 @@ class _RegisterState extends State<Register> {
                     TextFormField(
                       controller: passwordController,
                       obscureText: isPasswordHidden,
-                      style: TextStyle(fontFamily: _fBody, fontSize: _s(14.5)),
+                      style: TextStyle(fontFamily: AppFonts.body, fontSize: _s(14.5)),
                       decoration: inputDecoration(
                         hintText: "Minimum 8 characters",
                         icon: Icons.lock_outline_rounded,
@@ -357,7 +348,7 @@ class _RegisterState extends State<Register> {
                             isPasswordHidden
                                 ? Icons.visibility_off_outlined
                                 : Icons.visibility_outlined,
-                            color: secondaryText,
+                            color: AppColors.secondaryText,
                             size: _s(22),
                           ),
                         ),
@@ -371,7 +362,7 @@ class _RegisterState extends State<Register> {
                     TextFormField(
                       controller: confirmPasswordController,
                       obscureText: isConfirmPasswordHidden,
-                      style: TextStyle(fontFamily: _fBody, fontSize: _s(14.5)),
+                      style: TextStyle(fontFamily: AppFonts.body, fontSize: _s(14.5)),
                       decoration: inputDecoration(
                         hintText: "Re-enter your password",
                         icon: Icons.lock_outline_rounded,
@@ -383,7 +374,7 @@ class _RegisterState extends State<Register> {
                             isConfirmPasswordHidden
                                 ? Icons.visibility_off_outlined
                                 : Icons.visibility_outlined,
-                            color: secondaryText,
+                            color: AppColors.secondaryText,
                             size: _s(22),
                           ),
                         ),
@@ -403,9 +394,9 @@ class _RegisterState extends State<Register> {
                             height: _s(22),
                             child: Checkbox(
                               value: acceptsMarketing,
-                              activeColor: primary,
-                              checkColor: onPrimary,
-                              side: BorderSide(color: borderColor),
+                              activeColor: AppColors.primary,
+                              checkColor: AppColors.onPrimary,
+                              side: BorderSide(color: AppColors.border),
                               onChanged: (v) => setState(
                                   () => acceptsMarketing = v ?? false),
                             ),
@@ -415,9 +406,9 @@ class _RegisterState extends State<Register> {
                             child: Text(
                               "Keep me updated on new drops and offers",
                               style: TextStyle(
-                                fontFamily: _fBody,
+                                fontFamily: AppFonts.body,
                                 fontSize: _s(13),
-                                color: secondaryText,
+                                color: AppColors.secondaryText,
                                 height: 1.4,
                               ),
                             ),
@@ -434,9 +425,9 @@ class _RegisterState extends State<Register> {
                       child: ElevatedButton(
                         onPressed: isLoading ? null : _handleRegister,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: primary,
-                          foregroundColor: onPrimary,
-                          disabledBackgroundColor: borderColor,
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.onPrimary,
+                          disabledBackgroundColor: AppColors.border,
                           elevation: 0,
                         ),
                         child: isLoading
@@ -444,7 +435,7 @@ class _RegisterState extends State<Register> {
                                 width: 22,
                                 height: 22,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2.2, color: onPrimary),
+                                    strokeWidth: 2.2, color: AppColors.onPrimary),
                               )
                             : Text(
                                 "Create Account",
@@ -467,8 +458,8 @@ class _RegisterState extends State<Register> {
                           Text(
                             "Already have an account? ",
                             style: TextStyle(
-                              fontFamily: _fBody,
-                              color: secondaryText,
+                              fontFamily: AppFonts.body,
+                              color: AppColors.secondaryText,
                               fontSize: _s(14),
                             ),
                           ),
@@ -483,8 +474,8 @@ class _RegisterState extends State<Register> {
                             child: Text(
                               "Sign In",
                               style: TextStyle(
-                                fontFamily: _fBody,
-                                color: primary,
+                                fontFamily: AppFonts.body,
+                                color: AppColors.primary,
                                 fontSize: _s(14),
                                 fontWeight: FontWeight.w400,
                               ),
