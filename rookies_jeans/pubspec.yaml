@@ -2,7 +2,7 @@ name: rookies_jeans
 description: "Rookies Jeans shopping app."
 publish_to: 'none'
 
-version: 1.0.5+9
+version: 1.0.6+10
 
 environment:
   sdk: ^3.12.1
