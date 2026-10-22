@@ -223,11 +223,8 @@ class _HomeScreenState extends State<HomeScreen> {
               label: block.label,
               buttonLabel: block.buttonLabel,
               height: _promoBlockHeight(context),
-              onTap: () => _openCollectionByHandle(
-                block.collectionHandle,
-                title: block.label,
-                label: block.label.toUpperCase(),
-              ),
+              // The handle field often holds a full collection URL.
+              onTap: () => _openLink(block.collectionHandle, title: block.label),
             ),
           ),
         )

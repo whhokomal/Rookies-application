@@ -1179,13 +1179,103 @@ for (final e in rawVariantEdges) {
   /// editing those menus in Shopify admin updates the app on the next
   /// launch or pull-to-refresh. Falls back to the pinned
   /// [ShopifyConstants.exploreMenuSections] if the menus can't be loaded.
+  ///
+  /// Tabs built from "Shop By Category Image" entries (those with a Tab and
+  /// Group set) come first and replace the menu tab of the same name.
   Future<List<ShopMenuSection>> getExploreMenuSections() => _cachedFetch(
         'exploreMenuSections',
         () async {
+          final cardsFuture = _fetchExploreSectionsFromCategoryCards();
           final live = await _fetchExploreMenuSectionsFromMenus();
-          return live.isNotEmpty ? live : _fetchExploreMenuSections();
+          final menus = live.isNotEmpty ? live : await _fetchExploreMenuSections();
+          final cards = await cardsFuture;
+          final cardTabs = {for (final s in cards) s.title.toLowerCase()};
+          return [
+            ...cards,
+            ...menus.where((m) => !cardTabs.contains(m.title.toLowerCase())),
+          ];
         },
       );
+
+  /// Shop By Category tabs from the `category_card_image` metaobject: each
+  /// entry is one card, grouped by its `tab` then `group` fields in order
+  /// of `sort_order`, then the order entries were added. Entries without a
+  /// tab or group only override card images (see [_fetchCategoryCardImages]).
+  Future<List<ShopMenuSection>> _fetchExploreSectionsFromCategoryCards() async {
+    const String query = r'''
+      query getCategoryCards {
+        metaobjects(type: "category_card_image", first: 250, sortKey: "id") {
+          edges {
+            node {
+              collection: field(key: "collection") { reference { ... on Collection { handle title } } }
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
+              tab: field(key: "tab") { value }
+              group: field(key: "group") { value }
+              title: field(key: "title") { value }
+              sort_order: field(key: "sort_order") { value }
+            }
+          }
+        }
+      }
+    ''';
+
+    try {
+      final res = await ShopifyGraphQL.post(query);
+      _log('getCategoryCards → ${res.statusCode}');
+      if (res.hasErrors || res.data == null) return [];
+
+      String text(Map node, String key) =>
+          ((node[key] as Map?)?['value'] as String? ?? '').trim();
+      final cards = [
+        for (final e in (res.data!['metaobjects']?['edges'] as List?) ?? [])
+          e['node'] as Map<String, dynamic>,
+      ].where((n) {
+        final handle = n['collection']?['reference']?['handle'] as String?;
+        return handle != null &&
+            text(n, 'tab').isNotEmpty &&
+            text(n, 'group').isNotEmpty;
+      }).toList();
+
+      // tab → group → cards, each keyed in first-seen order.
+      final tabs = <String, Map<String, List<ShopMenuFit>>>{};
+      for (final n in _sortedStable(
+          cards, (n) => int.tryParse(text(n, 'sort_order')) ?? 0)) {
+        final collection = n['collection']['reference'] as Map;
+        final handle = collection['handle'] as String;
+        final title = text(n, 'title').isNotEmpty
+            ? text(n, 'title')
+            : collection['title'] as String? ?? handle;
+        tabs
+            .putIfAbsent(_menuTitleCase(text(n, 'tab')), () => {})
+            .putIfAbsent(_menuTitleCase(text(n, 'group')), () => [])
+            .add(ShopMenuFit(
+              title: _menuTitleCase(title),
+              url: '/collections/$handle',
+              collectionHandle: handle,
+              imageUrl: n['image']?['reference']?['image']?['url'] as String?,
+            ));
+      }
+
+      return [
+        for (final tab in tabs.entries)
+          ShopMenuSection(
+            title: tab.key,
+            handle: tab.key.toLowerCase().replaceAll(' ', '-'),
+            categories: [
+              for (final group in tab.value.entries)
+                ShopMenuCategory(
+                  title: group.key,
+                  collectionHandle: '',
+                  fits: group.value,
+                ),
+            ],
+          ),
+      ];
+    } catch (e) {
+      _log('_fetchExploreSectionsFromCategoryCards EXCEPTION: $e');
+      return [];
+    }
+  }
 
   /// Menu item fields shared by every menu query below.
   static const String _menuItemFields =
