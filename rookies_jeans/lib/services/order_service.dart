@@ -22,7 +22,12 @@ class ShopifyOrderException implements Exception {
   }
 }
 
-enum OrderState { active, delivered, cancelled }
+/// [placed]: not fulfilled yet. [shipped]: fulfilled (or partly) in Shopify,
+/// or the courier reported a pickup / in transit. [delivered]: the courier
+/// reported delivery, which the Shopify Flow "Fulfillment event created"
+/// copies into the order metafield `custom.delivery_status` because the
+/// Storefront API has no shipment status.
+enum OrderState { placed, shipped, delivered, cancelled }
 
 class ShopifyOrderService {
   ShopifyOrderService._();
@@ -54,6 +59,12 @@ class ShopifyOrderService {
                 financialStatus
                 fulfillmentStatus
                 canceledAt
+                deliveryStatus: metafield(namespace: "custom", key: "delivery_status") {
+                  value
+                }
+                successfulFulfillments(first: 5) {
+                  trackingInfo(first: 1) { number url }
+                }
                 currentTotalPrice {
                   amount
                   currencyCode
@@ -127,13 +138,28 @@ class ShopifyOrderService {
   OrderState resolveOrderState(Map<String, dynamic> order) {
     final canceledAt      = order['canceledAt'];
     final financialStatus = (order['financialStatus'] ?? '').toString().toUpperCase();
-    final fulfillStatus   = (order['fulfillmentStatus'] ?? '').toString().toUpperCase();
 
     if (canceledAt != null && canceledAt.toString().isNotEmpty) return OrderState.cancelled;
     if (financialStatus == 'REFUNDED') return OrderState.cancelled;
-    if (fulfillStatus == 'FULFILLED') return OrderState.delivered;
-    return OrderState.active;
+    final shipment = (order['deliveryStatus']?['value'] ?? '').toString().toUpperCase();
+    final fulfillStatus = (order['fulfillmentStatus'] ?? '').toString().toUpperCase();
+    if (shipment == 'DELIVERED') return OrderState.delivered;
+    if (fulfillStatus == 'FULFILLED' || fulfillStatus == 'PARTIALLY_FULFILLED') {
+      return OrderState.shipped;
+    }
+    if (_shippedStatuses.contains(shipment)) return OrderState.shipped;
+    return OrderState.placed;
   }
+
+  // OUT_FOR_DELIVERY / ATTEMPTED_DELIVERY / PICKED_UP only come from the
+  // one-off backfill of past orders (tool/backfill_delivery_status.mjs).
+  static const Set<String> _shippedStatuses = {
+    'CARRIER_PICKED_UP',
+    'PICKED_UP',
+    'IN_TRANSIT',
+    'OUT_FOR_DELIVERY',
+    'ATTEMPTED_DELIVERY',
+  };
 
   bool isCod(Map<String, dynamic> order) {
     final financialStatus = (order['financialStatus'] ?? '').toString().toUpperCase();
@@ -141,7 +167,7 @@ class ShopifyOrderService {
   }
 
   bool canCancelOrder(Map<String, dynamic> order) {
-    if (resolveOrderState(order) != OrderState.active) return false;
+    if (resolveOrderState(order) != OrderState.placed) return false;
     final fulfillStatus = (order['fulfillmentStatus'] ?? '').toString().toUpperCase();
     return fulfillStatus == 'UNFULFILLED';
   }
@@ -247,8 +273,6 @@ class ShopifyOrderService {
     }
     return null;
   }
-
-  String orderTrackUrl() => ShopifyConstants.shiprocketUrl;
 
   String formatPrice(Map<String, dynamic> price) {
     final amount   = double.tryParse(price['amount']?.toString() ?? '0') ?? 0;

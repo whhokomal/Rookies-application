@@ -103,6 +103,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       onRefresh: _load,
                       child: r.center(
                         ListView.separated(
+                          // Pullable even when the orders fit on screen.
+                          physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.all(16),
                           itemCount: _orders.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 10),
@@ -227,12 +229,15 @@ class _OrderStateBadge extends StatelessWidget {
         return const _Badge(label: 'Cancelled', color: Color(0xFFD32F2F));
       case OrderState.delivered:
         return const _Badge(label: 'Delivered', color: Color(0xFF2E7D32));
-      case OrderState.active:
+      case OrderState.placed:
+      case OrderState.shipped:
         return Wrap(
           spacing: 6,
           runSpacing: 6,
           children: [
-            const _Badge(label: 'Processing', color: Color(0xFFE65100)),
+            state == OrderState.shipped
+                ? const _Badge(label: 'Shipped', color: Color(0xFF1565C0))
+                : const _Badge(label: 'Placed', color: Color(0xFFE65100)),
             _Badge(
               label: isCod ? 'Cash on Delivery' : 'Paid',
               color: isCod ? const Color(0xFF1565C0) : const Color(0xFF2E7D32),
@@ -386,19 +391,33 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (updated != null && mounted) setState(() => _order = updated);
   }
 
+  /// Pull-to-refresh: re-fetch this order so status changes made in Shopify
+  /// show up without going back to the list.
+  Future<void> _refresh() async {
+    try {
+      final orders = await _svc.fetchOrders();
+      final match = orders.where((o) => o['id'] == _order['id']).firstOrNull;
+      if (match != null && mounted) {
+        setState(() {
+          _order = match;
+          _changed = true;
+        });
+      }
+    } catch (_) {}
+  }
+
   void _openTrackOrder() {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => WebViewScreen(title: 'Track Your Order', url: _svc.orderTrackUrl()),
+      builder: (_) => WebViewScreen(title: 'Track Your Order', url: ShopifyConstants.trackOrderUrl),
     ));
   }
 
   /// 0 = placed, 1 = shipped, 2 = delivered.
-  int _progressStep(Map<String, dynamic> order) {
-    final f = (order['fulfillmentStatus'] ?? '').toString().toUpperCase();
-    if (f == 'FULFILLED') return 2;
-    if (f == 'PARTIALLY_FULFILLED' || f == 'IN_PROGRESS') return 1;
-    return 0;
-  }
+  int _progressStep(OrderState state) => switch (state) {
+        OrderState.delivered => 2,
+        OrderState.shipped   => 1,
+        _                    => 0,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -411,13 +430,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final state      = _svc.resolveOrderState(order);
     final isCod      = _svc.isCod(order);
     final canCancel  = _svc.canCancelOrder(order);
-    final step       = _progressStep(order);
+    final step       = _progressStep(state);
     final address    = order['shippingAddress'] as Map<String, dynamic>?;
 
     final (statusLabel, statusColor) = switch (state) {
       OrderState.cancelled => ('Cancelled', AppColors.danger),
       OrderState.delivered => ('Delivered', AppColors.success),
-      OrderState.active    => (step == 1 ? 'Shipped' : 'Confirmed', const Color(0xFFE65100)),
+      OrderState.shipped   => ('Shipped', const Color(0xFF1565C0)),
+      OrderState.placed    => ('Placed', const Color(0xFFE65100)),
     };
 
     return PopScope(
@@ -454,8 +474,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ),
           centerTitle: false,
         ),
-        body: r.center(
+        body: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: _refresh,
+          child: r.center(
           ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
             children: [
               // ── Summary ────────────────────────────────────────────
@@ -546,8 +570,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ],
             ],
           ),
+          ),
         ),
-        bottomNavigationBar: state == OrderState.active
+        bottomNavigationBar: state == OrderState.placed || state == OrderState.shipped
             ? Container(
                 decoration: BoxDecoration(
                   color: AppColors.card,

@@ -1099,18 +1099,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     errorBuilder: (_, _, _) =>
                         Container(color: const Color(0xFFE0E0E0)),
                   ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.0),
-                    Colors.black.withValues(alpha: 0.35),
-                  ],
-                ),
-              ),
-            ),
             if (tile.label != null && tile.label!.trim().isNotEmpty)
               Positioned(
                 left: r.dp(12),
@@ -1129,6 +1117,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontSize: r.sp(18),
                       fontWeight: FontWeight.w400,
                       color: Colors.white,
+                      // No dark overlay on the photo, so keep the label legible.
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          blurRadius: 6,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1594,8 +1589,8 @@ class _PromoBlockCardState extends State<_PromoBlockCard> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.45),
-                      Colors.black.withValues(alpha: 0.05),
+                      Colors.transparent,
+                      Colors.transparent,
                       Colors.black.withValues(alpha: 0.45),
                     ],
                     stops: const [0.0, 0.5, 1.0],
@@ -1888,8 +1883,8 @@ class _ShopTheLookAutoSlideCardState extends State<_ShopTheLookAutoSlideCard> {
                           // photo loads.
                           ? CachedNetworkImage(
                               imageUrl: outfit.imageUrl!,
-                              fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
+                              fit: BoxFit.contain,
+                              alignment: Alignment.center,
                               fadeInDuration: Duration.zero,
                               fadeOutDuration: Duration.zero,
                               placeholder: (_, _) => const SizedBox.expand(),
@@ -1898,8 +1893,8 @@ class _ShopTheLookAutoSlideCardState extends State<_ShopTheLookAutoSlideCard> {
                             )
                           : Image.asset(
                               outfit.imageAsset,
-                              fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
+                              fit: BoxFit.contain,
+                              alignment: Alignment.center,
                               errorBuilder: (_, _, _) =>
                                   const SizedBox.expand(),
                             ),

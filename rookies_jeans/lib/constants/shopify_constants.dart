@@ -38,7 +38,9 @@ class ShopifyConstants {
   static const String reviewPhone = '+916123450987';
 
   static const String storeUrl      = 'https://rookiesjeans.com';
-  static const String shiprocketUrl  = 'https://rookiesjeans.shiprocket.co/';
+  /// Same "Track Your Order" page the website footer links to (EcoTrack),
+  /// where the customer enters their order number and email/phone.
+  static const String trackOrderUrl  = '$storeUrl/apps/ecotrack';
 
   static const String fontHeading    = 'Anton';
   static const String fontSubheading = 'BebasNeue';

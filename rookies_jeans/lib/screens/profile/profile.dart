@@ -577,7 +577,7 @@ class _MoreSection extends StatelessWidget {
               onTap: () => _openWebView(
                 context,
                 title: 'Track Your Order',
-                url: ShopifyConstants.shiprocketUrl,
+                url: ShopifyConstants.trackOrderUrl,
               ),
             ),
             if (showSignOut)
