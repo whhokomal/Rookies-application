@@ -223,6 +223,7 @@ class ShopifyStorefrontService {
               priceRange { minVariantPrice { amount currencyCode } }
               compareAtPriceRange { minVariantPrice { amount currencyCode } }
               images(first: 10) { edges { node { url(transform: {maxWidth: 800}) altText } } }
+              groupData: metafield(namespace: "vkcl", key: "group_data") { value }
               options {
                 name
                 values
@@ -694,6 +695,7 @@ for (final e in rawVariantEdges) {
               priceRange { minVariantPrice { amount currencyCode } }
               compareAtPriceRange { minVariantPrice { amount currencyCode } }
               images(first: 2) { edges { node { url(transform: {maxWidth: 800}) altText } } }
+              groupData: metafield(namespace: "vkcl", key: "group_data") { value }
               options {
                 name
                 values

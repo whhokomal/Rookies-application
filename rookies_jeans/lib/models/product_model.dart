@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/utils/format.dart';
 
 class ShopifyFilter {
@@ -64,6 +67,11 @@ class ShopifyProduct {
   // server-side CREATED sort key to rely on instead.
   final DateTime? createdAt;
 
+  /// Every published product in this item's Variant King color group
+  /// (`vkcl.group_data`), this one included, in the group's order.
+  /// Only populated by queries that request `groupData`.
+  final List<ColorGroupSwatch> colorGroupSwatches;
+
   const ShopifyProduct({
     required this.id,
     required this.title,
@@ -75,6 +83,7 @@ class ShopifyProduct {
     required this.variants,
     required this.options,
     this.createdAt,
+    this.colorGroupSwatches = const [],
   });
 
   bool get isOnSale => compareAtPrice != null && compareAtPrice! > price;
@@ -166,7 +175,65 @@ class ShopifyProduct {
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'] as String)
           : null,
+      colorGroupSwatches:
+          _parseColorGroupSwatches(json['groupData']?['value'] as String?),
     );
+  }
+
+  /// Published products from a raw `vkcl.group_data` metafield value (see
+  /// [ColorGroup]). Empty when there is no group or it can't be parsed.
+  static List<ColorGroupSwatch> _parseColorGroupSwatches(String? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final parsed = jsonDecode(raw);
+      if (parsed is! List || parsed.isEmpty) return const [];
+      final group = parsed.first as Map<String, dynamic>;
+      final products = group['products'];
+      if (products is! List) return const [];
+      // Groups set to "custom_swatch" have a hand-picked swatch image per
+      // product, which is what the website shows under its cards.
+      final source = group['collection_page_mobile_swatch_source'] ??
+          group['collection_page_swatch_source'];
+      final groupId = group['group_id']?.toString();
+      final useCustom = source == 'custom_swatch' && groupId != null;
+      final seen = <String>{};
+      return [
+        for (final p in products.whereType<Map<String, dynamic>>())
+          if (p['published'] != false &&
+              (p['handle'] as String? ?? '').isNotEmpty &&
+              seen.add(p['handle'] as String))
+            ColorGroupSwatch(
+              handle: p['handle'] as String,
+              imageUrl: useCustom && p['id'] != null
+                  ? ColorGroupSwatch.customSwatchUrl(groupId, '${p['id']}')
+                  : null,
+            ),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+}
+
+/// One product in a Variant King color group, as shown in a card's swatch
+/// row.
+class ColorGroupSwatch {
+  final String handle;
+
+  /// The group's custom swatch image for this product (a small solid-color
+  /// PNG), when the group uses custom swatches; otherwise null and the
+  /// color is guessed from [handle].
+  final String? imageUrl;
+
+  const ColorGroupSwatch({required this.handle, this.imageUrl});
+
+  /// Where the Variant King storefront script loads custom swatches from
+  /// (`swatch_url_source: cdn`, `swatch_dir: vkcl`).
+  static String customSwatchUrl(String groupId, String productId) {
+    final storeSlug =
+        ShopifyConstants.shopDomain.split('.myshopify.com').first;
+    return 'https://cdn.starapps.studio/v2/apps/vkcl/$storeSlug'
+        '/groups/$groupId/$productId.media';
   }
 }
 

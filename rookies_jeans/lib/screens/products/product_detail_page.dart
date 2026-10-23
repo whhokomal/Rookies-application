@@ -19,6 +19,7 @@ import 'package:rookies_jeans/services/recently_viewed_service.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/screens/cart/cart.dart';
 import 'package:rookies_jeans/screens/cart/checkout_flow.dart';
+import 'package:rookies_jeans/utils/color_names.dart';
 import 'package:rookies_jeans/widgets/price_text.dart';
 import 'package:rookies_jeans/widgets/product_row_section.dart';
 
@@ -168,6 +169,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      // Above the floating bottom nav bar, which otherwise covers the
+      // bottom of the chart.
+      useRootNavigator: true,
+      clipBehavior: Clip.antiAlias,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -545,7 +550,8 @@ debugPrint('==========================================');
                     ProductRowSection(title: 'YOU MAY ALSO LIKE', products: _youMayAlsoLike),
                   ],
                   _recentlyViewedSection(p.id),
-                  const SizedBox(height: 40),
+                  // Clearance for the floating bottom nav bar.
+                  const SizedBox(height: 110),
                 ],
               ),
             ),
@@ -667,7 +673,7 @@ debugPrint('==========================================');
                 ? Padding(
                     padding: const EdgeInsets.all(10),
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppColors.primary),
+                        strokeWidth: 2, color: Colors.black),
                   )
                 : AnimatedSwitcher(
                     duration: const Duration(milliseconds: 250),
@@ -679,7 +685,7 @@ debugPrint('==========================================');
                           : Icons.favorite_border_rounded,
                       key: ValueKey(_isWishlisted),
                       size: 20,
-                      color: _isWishlisted ? Colors.red : Colors.white,
+                      color: _isWishlisted ? Colors.red : Colors.black,
                     ),
                   ),
           ),
@@ -698,7 +704,7 @@ debugPrint('==========================================');
             child: Icon(
               Icons.share_outlined,
               size: 20,
-              color: AppColors.primary,
+              color: Colors.black,
             ),
           ),
         ),
@@ -738,106 +744,6 @@ debugPrint('==========================================');
     );
   }
 
-  /// Maps common apparel color words to a display hex code. Keys are
-  /// lowercase; two-word compounds (e.g. "light brown") are matched first,
-  /// falling back to the base hue word alone. Extend this as new color
-  /// names show up in your catalog.
-  static const Map<String, String> _namedColorHex = {
-    // compounds — checked before single words
-    'light brown': 'B08968',
-    'dark brown': '4A2C17',
-    'light blue': 'A9C6E8',
-    'dark blue': '1B3A6B',
-    'light green': '9CC69B',
-    'dark green': '234D35',
-    'light grey': 'C9C9C9',
-    'light gray': 'C9C9C9',
-    'dark grey': '4B4B4B',
-    'dark gray': '4B4B4B',
-    'off white': 'F5F1E8',
-    'navy blue': '000080',
-    'sky blue': '87CEEB',
-    'royal blue': '2551A6',
-    'baby pink': 'F7C9D6',
-    'hot pink': 'F0508A',
-    'dark red': '8B1E1E',
-    // single words
-    'white': 'FFFFFF',
-    'black': '000000',
-    'grey': '808080',
-    'gray': '808080',
-    'charcoal': '36454F',
-    'navy': '000080',
-    'blue': '2A4B7C',
-    'skyblue': '87CEEB',
-    'red': 'C1272D',
-    'maroon': '800000',
-    'wine': '722F37',
-    'burgundy': '800020',
-    'green': '2E5339',
-    'olive': '708238',
-    'khaki': 'C3B091',
-    'beige': 'D8C4A0',
-    'cream': 'FFFDD0',
-    'ivory': 'FFFFF0',
-    'brown': '5B3A29',
-    'tan': 'D2B48C',
-    'mustard': 'E1AD01',
-    'yellow': 'F2D51D',
-    'orange': 'E2711D',
-    'rust': 'B7410E',
-    'pink': 'F6A6C1',
-    'purple': '6A3FA0',
-    'lavender': 'B497D6',
-    'teal': '2F6D6D',
-    'mint': 'A8E0C5',
-    'coral': 'FF6F5E',
-    'turquoise': '30D5C8',
-    'gold': 'D4AF37',
-    'silver': 'C0C0C0',
-    'denim': '4A6D8C',
-    'indigo': '3F3B6C',
-  };
-
-  /// Resolves a display color from free-text like an option value
-  /// ("Light Brown") or a handle segment. Tries the full normalized string,
-  /// then each word from the end backwards (the last word is usually the
-  /// base hue, e.g. "dusty rose" -> "rose"). Returns null if nothing in
-  /// [_namedColorHex] matches.
-  Color? _colorFromName(String name) {
-    final normalized =
-        name.toLowerCase().trim().replaceAll(RegExp(r'[_\-]+'), ' ');
-    if (_namedColorHex.containsKey(normalized)) {
-      return _hexToColor(_namedColorHex[normalized]!);
-    }
-    final words = normalized.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-    for (final w in words.reversed) {
-      if (_namedColorHex.containsKey(w)) {
-        return _hexToColor(_namedColorHex[w]!);
-      }
-    }
-    return null;
-  }
-
-  /// Pulls a display color out of a Variant King child product's handle
-  /// (e.g. "light-brown-extra-loose-fit-jeans-2233") by trying the first
-  /// two hyphen-separated tokens as a compound color name, then the first
-  /// token alone, against [_namedColorHex].
-  Color? _colorFromHandle(String handle) {
-    final tokens = handle.split('-');
-    if (tokens.length >= 2) {
-      final twoWord = '${tokens[0]} ${tokens[1]}'.toLowerCase();
-      if (_namedColorHex.containsKey(twoWord)) {
-        return _hexToColor(_namedColorHex[twoWord]!);
-      }
-    }
-    if (tokens.isNotEmpty) {
-      final hex = _namedColorHex[tokens.first.toLowerCase()];
-      if (hex != null) return _hexToColor(hex);
-    }
-    return null;
-  }
-
   /// Row of color swatches for the sibling products in this item's Variant
   /// King color group (see `_fetchColorSiblings`). Tapping a swatch that
   /// isn't the currently-open product swaps this same page over to that
@@ -870,7 +776,7 @@ debugPrint('==========================================');
               _colorSiblingChip(
                 title: _product?.title ?? _currentTitle,
                 imageUrl: currentImageUrl,
-                fallbackColor: _colorFromHandle(_currentHandle),
+                fallbackColor: colorFromHandle(_currentHandle),
                 isCurrent: true,
                 onTap: null,
               ),
@@ -879,8 +785,8 @@ debugPrint('==========================================');
                   title: sibling.title,
                   imageUrl: sibling.primaryImageUrl,
                   fallbackColor: sibling.colorHexCodes.isNotEmpty
-                      ? _hexToColor(sibling.colorHexCodes.first)
-                      : _colorFromHandle(sibling.handle),
+                      ? hexToColor(sibling.colorHexCodes.first)
+                      : colorFromHandle(sibling.handle),
                   isCurrent: false,
                   onTap: () => _switchProduct(sibling),
                 ),
@@ -1318,14 +1224,6 @@ _variantMetafieldsSection(),
     );
   }
 
-  Color? _hexToColor(String? hex) {
-    if (hex == null || hex.isEmpty) return null;
-    var h = hex.replaceAll('#', '');
-    if (h.length == 6) h = 'FF$h';
-    final value = int.tryParse(h, radix: 16);
-    return value != null ? Color(value) : null;
-  }
-
   Widget _colorSwatchChip(ProductDetailOption opt, String val, bool isSelected) {
     final swatch = opt.swatchFor(val);
     // Prefer a real photo: Shopify's configured swatch image first, then
@@ -1338,7 +1236,7 @@ _variantMetafieldsSection(),
         : null;
     final imageUrl = swatchImageUrl ?? ownPhotoUrl;
     final color = imageUrl == null
-        ? (_hexToColor(swatch?.swatchColorHex) ?? _colorFromName(val))
+        ? (hexToColor(swatch?.swatchColorHex) ?? colorFromName(val))
         : null;
 
     return GestureDetector(

@@ -11,6 +11,7 @@ import 'package:rookies_jeans/screens/products/product_detail_page.dart';
 import 'package:rookies_jeans/screens/products/product_peek_dialog.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
+import 'package:rookies_jeans/widgets/product_swatch_row.dart';
 import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
 
 class _Responsive {
@@ -589,6 +590,7 @@ class _ProductsPageState extends State<ProductsPage> {
             icon: Icons.swap_vert_rounded,
             label: 'SORT',
             style: labelStyle,
+            active: _sortOption != ProductSortOption.defaultSort,
             onTap: () => _openSortSheet(context),
           ),
         ],
@@ -601,6 +603,8 @@ class _ProductsPageState extends State<ProductsPage> {
     required String label,
     required TextStyle style,
     required VoidCallback onTap,
+    // Shows a dot on the icon, e.g. when a non-default sort is applied.
+    bool active = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -611,7 +615,25 @@ class _ProductsPageState extends State<ProductsPage> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: AppColors.primary),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(icon, size: 18, color: AppColors.primary),
+                  if (active)
+                    Positioned(
+                      top: -2,
+                      right: -3,
+                      child: Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: AppColors.danger,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               const SizedBox(width: 6),
               Text(label, style: style),
             ],
@@ -643,7 +665,7 @@ class _ProductsPageState extends State<ProductsPage> {
         _kGridPadding,
         _kGridPadding,
         _kGridPadding,
-        90,
+        110, // Clearance for the floating bottom nav bar.
       ),
       sliver: SliverGrid(
         gridDelegate: _gridDelegate(r),
@@ -671,6 +693,7 @@ class _ProductsPageState extends State<ProductsPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -746,6 +769,7 @@ class _ProductsPageState extends State<ProductsPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -1322,7 +1346,6 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   Widget _productCard(ShopifyProduct product) {
-    final colorHexes = product.colorHexCodes;
     final controller = _imagePageControllers[product.id];
     final images = product.imageUrls.take(2).toList();
     final hasMultipleImages = images.length > 1;
@@ -1453,9 +1476,7 @@ class _ProductsPageState extends State<ProductsPage> {
                   const SizedBox(height: 6),
                   SizedBox(
                     height: 14,
-                    child: colorHexes.isNotEmpty
-                        ? _colorSwatches(colorHexes)
-                        : null,
+                    child: ProductSwatchRow(product: product),
                   ),
                 ],
               ),
@@ -1697,31 +1718,6 @@ class _ProductsPageState extends State<ProductsPage> {
           // ),
         // ),
       ],
-    );
-  }
-
-  Widget _colorSwatches(List<String> hexCodes) {
-    final visible = hexCodes.take(5).toList();
-    return Row(
-      children: visible.map((hex) {
-        Color color;
-        try {
-          final cleaned = hex.replaceAll('#', '');
-          color = Color(int.parse('FF$cleaned', radix: 16));
-        } catch (_) {
-          color = const Color(0xFFCCCCCC);
-        }
-        return Container(
-          margin: const EdgeInsets.only(right: 4),
-          width: 14,
-          height: 14,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFDDDDDD), width: 1),
-          ),
-        );
-      }).toList(),
     );
   }
 

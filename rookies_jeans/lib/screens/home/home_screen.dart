@@ -16,6 +16,7 @@ import 'package:rookies_jeans/screens/products/products.dart';
 import 'package:rookies_jeans/screens/search/search_tab_page.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
+import 'package:rookies_jeans/widgets/product_swatch_row.dart';
 import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
 import 'package:rookies_jeans/widgets/banner_page_dots.dart';
 import 'package:rookies_jeans/widgets/sticker_chip.dart';
@@ -940,6 +941,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ],
+          ),
+          // Reserved even when empty so every card's image is the same
+          // height.
+          SizedBox(height: r.dp(6)),
+          SizedBox(
+            height: 14,
+            child: product.product != null
+                ? ProductSwatchRow(product: product.product!)
+                : null,
           ),
         ],
       ),

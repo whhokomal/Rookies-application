@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -21,19 +22,42 @@ class SizeChartView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) => Stack(
+    // Fixed-height sheet rather than a DraggableScrollableSheet: the sheet's
+    // own drag handling used to win every vertical swipe, so the chart page
+    // inside the WebView could never scroll. The eager recognizer hands all
+    // gestures on the page to the WebView.
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.85,
+      child: Column(
         children: [
-          WebViewWidget(controller: controller),
-          ValueListenableBuilder<bool>(
-            valueListenable: loading,
-            builder: (context, isLoading, _) => isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : const SizedBox.shrink(),
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                WebViewWidget(
+                  controller: controller,
+                  gestureRecognizers: {
+                    Factory<OneSequenceGestureRecognizer>(
+                      () => EagerGestureRecognizer(),
+                    ),
+                  },
+                ),
+                ValueListenableBuilder<bool>(
+                  valueListenable: loading,
+                  builder: (context, isLoading, _) => isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
           ),
         ],
       ),
