@@ -63,6 +63,10 @@ class FeatureBannerContent {
   final String link;
   final int sortOrder;
 
+  /// Image width / height, so the banner can be shown uncropped; null when
+  /// Shopify didn't report the size.
+  final double? aspectRatio;
+
   const FeatureBannerContent({
     required this.id,
     this.imageUrl,
@@ -70,11 +74,18 @@ class FeatureBannerContent {
     this.buttonLabel,
     required this.link,
     this.sortOrder = 0,
+    this.aspectRatio,
   });
 
   factory FeatureBannerContent.fromMetaobjectJson(Map<String, dynamic> json) {
+    final image = json['image']?['reference']?['image'];
+    final width = _asInt(image?['width']);
+    final height = _asInt(image?['height']);
     return FeatureBannerContent(
       id: json['id'] as String,
+      aspectRatio: width != null && height != null && width > 0 && height > 0
+          ? width / height
+          : null,
       imageUrl: _imageUrlFrom(json['image']),
       label: _textFrom(json['label']) ?? '',
       buttonLabel: _textFrom(json['button_label']),

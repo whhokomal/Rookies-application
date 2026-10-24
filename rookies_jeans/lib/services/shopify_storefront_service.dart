@@ -8,6 +8,7 @@ import 'package:rookies_jeans/models/banner_model.dart';
 import 'package:rookies_jeans/models/collection_model.dart';
 import 'package:rookies_jeans/models/home_content_models.dart';
 import 'package:rookies_jeans/models/shop_menu_model.dart';
+import 'package:rookies_jeans/models/shop_policy_model.dart';
 
 class PaginatedProductsResponse {
   final List<ShopifyProduct> products;
@@ -610,14 +611,19 @@ for (final e in rawVariantEdges) {
   /// color search also finds products whose color lives in the Color
   /// option). Matching at word starts (hyphens count as part of a word)
   /// keeps "shirt" from matching tees via "TSHIRTS" or a "T-SHIRT" tag.
+  /// SKUs ("8903891802796-RJ6572-MED_BLUE-30") are split on hyphens so the
+  /// style number (RJ6572) is its own word and a style-no search matches.
   bool _matchesSearchWords(Map<String, dynamic> node, List<RegExp> words) {
     if (words.isEmpty) return true;
+    final variantEdges = (node['variants'] as Map?)?['edges'] as List?;
     final haystack = [
       node['title'],
       node['productType'],
       ...((node['tags'] as List?) ?? const []),
       for (final opt in (node['options'] as List?) ?? const [])
         ...(((opt as Map)['values'] as List?) ?? const []),
+      for (final edge in variantEdges ?? const [])
+        ...?((edge as Map)['node']?['sku'] as String?)?.split('-'),
     ].whereType<String>().join(' ');
     return words.every((w) => w.hasMatch(haystack));
   }
@@ -706,6 +712,7 @@ for (final e in rawVariantEdges) {
                   node {
                     id
                     title
+                    sku
                     availableForSale
                     selectedOptions { name value }
                   }
@@ -927,7 +934,7 @@ for (final e in rawVariantEdges) {
           edges {
             node {
               id
-              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) width height } } } }
               label: field(key: "label") { value }
               button_label: field(key: "button_label") { value }
               link: field(key: "link") { value }
@@ -1620,6 +1627,34 @@ for (final e in rawVariantEdges) {
     } catch (e) {
       _log('getAllCollections EXCEPTION: $e');
       return [];
+    }
+  }
+
+  /// The store's terms, shipping, refund and privacy policies. Empty when the
+  /// request failed (not cached, so opening the page again retries).
+  Future<Map<ShopPolicyType, ShopPolicy>> getShopPolicies() =>
+      _cachedFetch('shopPolicies', _fetchShopPolicies);
+
+  Future<Map<ShopPolicyType, ShopPolicy>> _fetchShopPolicies() async {
+    final fields = ShopPolicyType.values
+        .map((t) => '${t.shopField} { title body }')
+        .join(' ');
+    final query = 'query getShopPolicies { shop { $fields } }';
+
+    try {
+      final res = await ShopifyGraphQL.post(query);
+      _log('getShopPolicies → ${res.statusCode}');
+      if (res.hasErrors || res.data == null) return {};
+
+      final shop = res.data!['shop'] as Map<String, dynamic>? ?? {};
+      return {
+        for (final t in ShopPolicyType.values)
+          if (shop[t.shopField] is Map<String, dynamic>)
+            t: ShopPolicy.fromJson(shop[t.shopField] as Map<String, dynamic>),
+      };
+    } catch (e) {
+      _log('getShopPolicies EXCEPTION: $e');
+      return {};
     }
   }
 }

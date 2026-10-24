@@ -198,19 +198,16 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  Future<void> _handleResendOtp({String channel = 'text'}) async {
+  Future<void> _handleResendOtp() async {
     await _run(() async {
-      final error =
-          await OtpAuthService.instance.resendOtp(_phone, channel: channel);
+      final error = await OtpAuthService.instance.resendOtp(_phone);
       if (!mounted) return;
       if (error != null) {
         _showMessage(error);
         return;
       }
       _startResendTimer();
-      _showMessage(channel == 'whatsapp'
-          ? 'OTP sent on WhatsApp to $_phone'
-          : 'OTP resent to $_phone');
+      _showMessage('OTP resent to $_phone');
     });
   }
 
@@ -460,14 +457,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(
                           color: AppColors.secondaryText, fontSize: _s(13.5))),
                 )
-              : Wrap(
-                  spacing: _s(16),
-                  children: [
-                    _linkButton("Get OTP on WhatsApp",
-                        () => _handleResendOtp(channel: 'whatsapp')),
-                    _linkButton("Resend OTP", _handleResendOtp),
-                  ],
-                ),
+              : _linkButton("Resend OTP", _handleResendOtp),
         ),
         SizedBox(height: _s(12)),
         _primaryButton("Sign In", _handleVerifyOtp),

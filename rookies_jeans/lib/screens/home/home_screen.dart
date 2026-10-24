@@ -232,10 +232,13 @@ class _HomeScreenState extends State<HomeScreen> {
         .toList();
   }
 
-  /// Feature banners, stacked in the order they were added; same size as
-  /// the Denim / Cargos promo blocks.
+  /// Feature banners, stacked in the order they were added. Each one is as
+  /// tall as its image's shape needs at full width, so artwork with text
+  /// (e.g. a square "Last sizes left" poster) is never cropped; banners
+  /// without a known size fall back to the Denim / Cargos promo height.
   List<Widget> _featureBannerSlivers() {
     if (_featureBanners.isEmpty) return const [];
+    final screenWidth = MediaQuery.of(context).size.width;
     // Breathing room between the banners and the sections around them.
     final gap = SliverToBoxAdapter(
       child: SizedBox(height: R.of(context).dp(20)),
@@ -248,7 +251,9 @@ class _HomeScreenState extends State<HomeScreen> {
             imageUrls: [if (b.imageUrl != null) b.imageUrl!],
             label: b.label,
             buttonLabel: b.buttonLabel ?? '',
-            height: _promoBlockHeight(context),
+            height: b.aspectRatio != null
+                ? screenWidth / b.aspectRatio!
+                : _promoBlockHeight(context),
             onTap: () => _openLink(b.link, title: b.label),
           ),
         ),
@@ -1593,20 +1598,23 @@ class _PromoBlockCardState extends State<_PromoBlockCard> {
                       errorBuilder: (_, _, _) =>
                           Container(color: const Color(0xFF555555)),
                     ),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.45),
-                    ],
-                    stops: const [0.0, 0.5, 1.0],
+              // Scrim only for the app's own label/button; artwork that
+              // carries its own text is left undimmed.
+              if (widget.label.isNotEmpty || widget.buttonLabel.isNotEmpty)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.45),
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
                   ),
                 ),
-              ),
               Positioned(
                 left: r.dp(18),
                 top: r.dp(20),

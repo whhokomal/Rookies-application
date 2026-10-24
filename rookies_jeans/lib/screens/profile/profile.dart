@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/constants/shopify_constants.dart';
+import 'package:rookies_jeans/models/shop_policy_model.dart';
+import 'package:rookies_jeans/screens/profile/policy_screen.dart';
 import 'package:rookies_jeans/services/auth_service.dart';
 import 'package:rookies_jeans/services/otp_auth_service.dart';
 import 'package:rookies_jeans/widgets/web_view_screen.dart';
@@ -540,30 +542,13 @@ class _MoreSection extends StatelessWidget {
               trailingText: ThemeService.instance.label,
               onTap: () => _showThemeSheet(context),
             ),
-            _MoreTile(
-              label: 'Data & Privacy',
-              onTap: () => _openWebView(
-                context,
-                title: 'Data & Privacy',
-                url: '${ShopifyConstants.storeUrl}/policies/privacy-policy',
+            for (final type in ShopPolicyType.values)
+              _MoreTile(
+                label: type.label,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => PolicyScreen(type: type)),
+                ),
               ),
-            ),
-            _MoreTile(
-              label: 'Return & Refund Policy',
-              onTap: () => _openWebView(
-                context,
-                title: 'Return & Refund Policy',
-                url: '${ShopifyConstants.storeUrl}/policies/refund-policy',
-              ),
-            ),
-            _MoreTile(
-              label: 'Shipping Policy',
-              onTap: () => _openWebView(
-                context,
-                title: 'Shipping Policy',
-                url: '${ShopifyConstants.storeUrl}/policies/shipping-policy',
-              ),
-            ),
             _MoreTile(
               label: 'Store Locator',
               onTap: () => _openWebView(

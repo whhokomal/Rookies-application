@@ -44,10 +44,9 @@ class OtpAuthService {
 
   static const Duration _timeout = Duration(seconds: 20);
 
-  // MSG91 retry channel codes — sent as strings, exactly like the website's
-  // widget script does.
-  static const String _channelSms      = '11';
-  static const String _channelWhatsApp = '12';
+  // MSG91 retry channel code for SMS — sent as a string, exactly like the
+  // website's widget script does.
+  static const String _channelSms = '11';
 
   static const String _msg91WidgetApi = 'https://control.msg91.com/api/v5/widget';
 
@@ -80,12 +79,12 @@ class OtpAuthService {
     return null;
   }
 
-  /// [channel] is 'text' (SMS) or 'whatsapp'.
-  Future<String?> resendOtp(String phone, {String channel = 'text'}) async {
+  /// Resends the OTP by SMS.
+  Future<String?> resendOtp(String phone) async {
     if (_reqId == null || _isReviewPhone(phone)) return sendOtp(phone);
     final res = await _msg91('retryOtp', {
       'reqId': _reqId,
-      'retryChannel': channel == 'whatsapp' ? _channelWhatsApp : _channelSms,
+      'retryChannel': _channelSms,
     });
     return res.error;
   }
