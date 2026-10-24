@@ -904,7 +904,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   Positioned(
                     top: r.dp(2),
                     right: r.dp(2),
-                    child: WishlistHeartButton(product: product.product!),
+                    child: WishlistHeartButton(
+                      product: product.product!,
+                      idleColor: Colors.black,
+                    ),
                   ),
               ],
             ),
