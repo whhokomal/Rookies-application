@@ -23,7 +23,7 @@ class SearchTabPage extends StatefulWidget {
 }
 
 class _SearchTabPageState extends State<SearchTabPage> {
-  static const int _kMinLiveSearchLength = 3;
+  static const int _kMinLiveSearchLength = 2;
   static const int _kResultCount = 20;
 
   final TextEditingController _searchCtrl = TextEditingController();
