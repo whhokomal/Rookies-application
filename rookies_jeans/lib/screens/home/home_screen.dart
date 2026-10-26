@@ -10,6 +10,7 @@ import 'package:rookies_jeans/models/banner_model.dart';
 import 'package:rookies_jeans/models/collection_model.dart';
 import 'package:rookies_jeans/models/home_content_models.dart';
 import 'package:rookies_jeans/models/product_model.dart';
+import 'package:rookies_jeans/screens/collections/collections.dart';
 import 'package:rookies_jeans/screens/products/product_detail_page.dart';
 import 'package:rookies_jeans/screens/products/product_peek_dialog.dart';
 import 'package:rookies_jeans/screens/products/products.dart';
@@ -22,6 +23,9 @@ import 'package:rookies_jeans/widgets/banner_page_dots.dart';
 import 'package:rookies_jeans/widgets/sticker_chip.dart';
 
 typedef R = Responsive;
+
+/// Most looks the home Shop the Look slider shows.
+const int _kHomeLooksMax = 10;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -149,11 +153,15 @@ class _HomeScreenState extends State<HomeScreen> {
     // first entry supplies the button and collection.
     final Map<String, PromoBlockContent> firstByLabel = {};
     final Map<String, List<String>> imagesByLabel = {};
+    final Map<String, double> ratioByLabel = {};
     for (final p in _promoBlocksContent) {
       final key = p.label.trim().toLowerCase();
       firstByLabel.putIfAbsent(key, () => p);
       final images = imagesByLabel.putIfAbsent(key, () => []);
       if (p.imageUrl != null) images.add(p.imageUrl!);
+      if (p.imageUrl != null && p.aspectRatio != null) {
+        ratioByLabel.putIfAbsent(key, () => p.aspectRatio!);
+      }
     }
     return firstByLabel.entries.map((e) {
       final p = e.value;
@@ -163,6 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
         label: p.label,
         buttonLabel: p.buttonLabel ?? 'Shop ${p.label}',
         collectionHandle: p.collectionHandle,
+        aspectRatio: ratioByLabel[e.key],
       );
     }).toList();
   }
@@ -170,8 +179,13 @@ class _HomeScreenState extends State<HomeScreen> {
   List<_ShopTheLookOutfit> get _shopTheLookOutfitsToDisplay {
     // Nothing set up in Shopify (or it failed to load): hide the section.
     if (_shopTheLookEntries.isEmpty) return const [];
-    return _shopTheLookEntries
+    // Same order as the collections page, so "View all" continues the list.
+    final sorted = [..._shopTheLookEntries]
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return sorted
         .where((e) => e.imageUrl != null && e.products.isNotEmpty)
+        // The rest are behind "View all" on the collections page.
+        .take(_kHomeLooksMax)
         .map(
           (e) => _ShopTheLookOutfit(
             imageAsset: 'assets/shop_the_look_outfit_1.jpg',
@@ -223,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
               imageUrls: block.imageUrls,
               label: block.label,
               buttonLabel: block.buttonLabel,
-              height: _promoBlockHeight(context),
+              height: _promoBlockHeight(context, aspectRatio: block.aspectRatio),
               // The handle field often holds a full collection URL.
               onTap: () => _openLink(block.collectionHandle, title: block.label),
             ),
@@ -574,8 +588,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return mq.size.height - mq.padding.top - mq.padding.bottom;
   }
 
-  double _promoBlockHeight(BuildContext context) =>
-      (MediaQuery.of(context).size.height * 0.46).clamp(220.0, 420.0);
+  /// Promo height follows the screen width and the image's own shape
+  /// (4:5 portrait when unknown), so the photo fits the same on every
+  /// phone instead of being cropped on narrow/tall ones. Capped so one
+  /// block never fills more than most of the screen.
+  double _promoBlockHeight(BuildContext context, {double? aspectRatio}) {
+    final size = MediaQuery.of(context).size;
+    final height = size.width / (aspectRatio ?? 0.8);
+    return height.clamp(220.0, size.height * 0.85);
+  }
 
   Widget _topBar() {
     final r = R.of(context);
@@ -708,13 +729,50 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _sliverHeadAsBox(String title) {
+  Widget _sliverHeadAsBox(String title, {VoidCallback? onViewAll}) {
     final r = R.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(r.dp(16), r.dp(26), r.dp(16), r.dp(12)),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: _tiltedHeading(title, r, color: AppColors.primary),
+      child: Row(
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _tiltedHeading(title, r, color: AppColors.primary),
+            ),
+          ),
+          if (onViewAll != null)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onViewAll,
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: r.dp(6)),
+                child: Text(
+                  'VIEW ALL',
+                  style: TextStyle(
+                    fontFamily: AppFonts.number,
+                    fontSize: r.sp(11),
+                    letterSpacing: 1.6,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                    decoration: TextDecoration.underline,
+                    decorationColor: AppColors.primary,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// "View all" on Shop the Look: the collections page, scrolled to its
+  /// Shop the Look section.
+  void _openAllLooks() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CollectionsShowcasePage(scrollToLooks: true),
       ),
     );
   }
@@ -971,7 +1029,7 @@ class _HomeScreenState extends State<HomeScreen> {
       height: sectionHeight,
       child: Column(
         children: [
-          _sliverHeadAsBox('SHOP THE LOOK'),
+          _sliverHeadAsBox('SHOP THE LOOK', onViewAll: _openAllLooks),
           Expanded(child: _shopTheLookAsBox()),
         ],
       ),
@@ -2146,12 +2204,16 @@ class _PromoBlockData {
   final String label;
   final String buttonLabel;
   final String collectionHandle;
+
+  /// Width / height of the first image whose size is known.
+  final double? aspectRatio;
   const _PromoBlockData({
     this.assetPath,
     this.imageUrls = const [],
     required this.label,
     required this.buttonLabel,
     required this.collectionHandle,
+    this.aspectRatio,
   });
 }
 

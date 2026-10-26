@@ -30,6 +30,10 @@ class PromoBlockContent {
   final String collectionHandle;
   final int sortOrder;
 
+  /// Image width / height, so the block can be shown uncropped; null when
+  /// Shopify didn't report the size.
+  final double? aspectRatio;
+
   const PromoBlockContent({
     required this.id,
     this.imageUrl,
@@ -37,11 +41,18 @@ class PromoBlockContent {
     this.buttonLabel,
     required this.collectionHandle,
     this.sortOrder = 0,
+    this.aspectRatio,
   });
 
   factory PromoBlockContent.fromMetaobjectJson(Map<String, dynamic> json) {
+    final image = json['image']?['reference']?['image'];
+    final width = _asInt(image?['width']);
+    final height = _asInt(image?['height']);
     return PromoBlockContent(
       id: json['id'] as String,
+      aspectRatio: width != null && height != null && width > 0 && height > 0
+          ? width / height
+          : null,
       imageUrl: _imageUrlFrom(json['image']),
       label: _textFrom(json['label']) ?? '',
       buttonLabel: _textFrom(json['button_label']),

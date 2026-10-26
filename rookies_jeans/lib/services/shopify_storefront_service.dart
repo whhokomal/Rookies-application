@@ -884,7 +884,7 @@ for (final e in rawVariantEdges) {
           edges {
             node {
               id
-              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) width height } } } }
               label: field(key: "label") { value }
               button_label: field(key: "button_label") { value }
               collection_handle: field(key: "collection_handle") { value }

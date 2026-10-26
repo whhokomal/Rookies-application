@@ -475,15 +475,23 @@ class _BackTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
 /// [ExploreCategoriesPage]: hero banner, "Shop by category", "Shop the
 /// look" and "Find your aesthetic".
 class CollectionsShowcasePage extends StatefulWidget {
-  const CollectionsShowcasePage({super.key});
+  const CollectionsShowcasePage({super.key, this.scrollToLooks = false});
+
+  /// Open scrolled to the "Shop the look" section (home's "View all").
+  final bool scrollToLooks;
+
   @override
   State<CollectionsShowcasePage> createState() => _CollectionsShowcasePageState();
 }
 
 class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
-  /// Looks shown at first, then how many more each "View more" tap adds.
+  /// Looks shown at first, then how many more each "Show more" tap adds.
   static const int _kLooksInitial = 6;
-  static const int _kLooksStep = 4;
+  static const int _kLooksStep = 6;
+
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _looksKey = GlobalKey();
+  bool _scrolledToLooks = false;
 
   late Future<_CollectionsPageData> _future;
 
@@ -507,7 +515,31 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
   @override
   void dispose() {
     _sectionSwitch?.cancel();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Brings the Shop the look heading to the top. Slivers below the fold
+  /// aren't built yet, so step down a screen at a time until it exists.
+  void _scrollToLooks([int attempts = 0]) {
+    if (!mounted || !_scrollController.hasClients) return;
+    final ctx = _looksKey.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      );
+      return;
+    }
+    final position = _scrollController.position;
+    if (attempts > 30 || position.pixels >= position.maxScrollExtent) return;
+    _scrollController.jumpTo(
+      (position.pixels + position.viewportDimension)
+          .clamp(0.0, position.maxScrollExtent),
+    );
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _scrollToLooks(attempts + 1));
   }
 
   Future<_CollectionsPageData> _load() async {
@@ -720,7 +752,13 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
     final categories =
         sections.isEmpty ? const <ShopMenuCategory>[] : sections[sectionIndex].categories;
 
+    if (widget.scrollToLooks && !_scrolledToLooks && data.looks.isNotEmpty) {
+      _scrolledToLooks = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLooks());
+    }
+
     return CustomScrollView(
+      controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(
@@ -742,6 +780,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
         ],
         if (data.looks.isNotEmpty) ...[
           SliverToBoxAdapter(
+            key: _looksKey,
             child: _heading(
               'SHOP THE LOOK',
               trailing: '${data.looks.length} '
@@ -1032,7 +1071,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'VIEW MORE',
+                  'SHOW MORE',
                   style: TextStyle(
                     fontFamily: AppFonts.number,
                     fontSize: 13,

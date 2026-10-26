@@ -38,126 +38,132 @@ class _LoggedOutProfile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final media = MediaQuery.of(context);
-          final screenH = media.size.height;
-          final isWide = constraints.maxWidth > _kMaxContentW;
-          final halfH = (screenH * (isWide ? 0.5 : 0.66)).clamp(220.0, 560.0);
+      // Bottom only: the photo still runs under the status bar, but the
+      // list stops scrolling at the floating nav's top edge.
+      body: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final media = MediaQuery.of(context);
+            final screenH = media.size.height;
+            final isWide = constraints.maxWidth > _kMaxContentW;
+            final halfH = (screenH * (isWide ? 0.5 : 0.66)).clamp(220.0, 560.0);
 
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _kMaxContentW),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      height: halfH,
-                      child: Image.asset(
-                        'assets/welcome_model.png',
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                        errorBuilder: (_, _, _) => Container(
-                          color: AppColors.fieldFill,
-                          child: Icon(
-                            Icons.person,
-                            size: _s(context, 96).clamp(72.0, 140.0),
-                            color: AppColors.secondaryText,
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _kMaxContentW),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        height: halfH,
+                        child: Image.asset(
+                          'assets/welcome_model.png',
+                          fit: BoxFit.cover,
+                          alignment: Alignment.topCenter,
+                          errorBuilder: (_, _, _) => Container(
+                            color: AppColors.fieldFill,
+                            child: Icon(
+                              Icons.person,
+                              size: _s(context, 96).clamp(72.0, 140.0),
+                              color: AppColors.secondaryText,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Container(
-                      color: AppColors.card,
-                      padding: EdgeInsets.fromLTRB(
-                        _s(context, 24),
-                        _s(context, 28),
-                        _s(context, 24),
-                        _s(context, 28),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'WELCOME!',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: AppFonts.heading,
-                              color: AppColors.primary,
-                              fontSize: _s(context, 26).clamp(22.0, 34.0),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: _s(context, 20)),
-                          SizedBox(
-                            height: _s(context, 50).clamp(46.0, 62.0),
-                            child: ElevatedButton(
-                              onPressed: () => context.push('/login'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: AppColors.onPrimary,
-                                elevation: 0,
-                              ),
-                              child: Text(
-                                'Sign In',
-                                style: TextStyle(
-                                  fontFamily: AppFonts.body,
-                                  fontSize: _s(context, 16).clamp(14.0, 20.0),
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: _s(context, 14)),
-                          Center(
-                            child: RichText(
+                      Container(
+                        color: AppColors.card,
+                        padding: EdgeInsets.fromLTRB(
+                          _s(context, 24),
+                          _s(context, 28),
+                          _s(context, 24),
+                          _s(context, 28),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'WELCOME!',
                               textAlign: TextAlign.center,
-                              text: TextSpan(
-                                style: TextStyle(
-                                  fontFamily: AppFonts.body,
-                                  fontSize: _s(context, 13).clamp(12.0, 17.0),
-                                  color: AppColors.secondaryText,
+                              style: TextStyle(
+                                fontFamily: AppFonts.heading,
+                                color: AppColors.primary,
+                                fontSize: _s(context, 26).clamp(22.0, 34.0),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(height: _s(context, 20)),
+                            SizedBox(
+                              height: _s(context, 50).clamp(46.0, 62.0),
+                              child: ElevatedButton(
+                                onPressed: () => context.push('/login'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: AppColors.onPrimary,
+                                  elevation: 0,
                                 ),
-                                children: [
-                                  const TextSpan(
-                                    text: "Don't have an account? ",
+                                child: Text(
+                                  'Sign In',
+                                  style: TextStyle(
+                                    fontFamily: AppFonts.body,
+                                    fontSize: _s(context, 16).clamp(14.0, 20.0),
+                                    fontWeight: FontWeight.w900,
                                   ),
-                                  WidgetSpan(
-                                    alignment: PlaceholderAlignment.middle,
-                                    child: GestureDetector(
-                                      onTap: () => context.push('/register'),
-                                      child: Text(
-                                        'Create Account',
-                                        style: TextStyle(
-                                          fontFamily: AppFonts.body,
-                                          fontSize: _s(
-                                            context,
-                                            13,
-                                          ).clamp(12.0, 17.0),
-                                          color: AppColors.primary,
-                                          decoration: TextDecoration.underline,
-                                          fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: _s(context, 14)),
+                            Center(
+                              child: RichText(
+                                textAlign: TextAlign.center,
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    fontFamily: AppFonts.body,
+                                    fontSize: _s(context, 13).clamp(12.0, 17.0),
+                                    color: AppColors.secondaryText,
+                                  ),
+                                  children: [
+                                    const TextSpan(
+                                      text: "Don't have an account? ",
+                                    ),
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: GestureDetector(
+                                        onTap: () => context.push('/register'),
+                                        child: Text(
+                                          'Create Account',
+                                          style: TextStyle(
+                                            fontFamily: AppFonts.body,
+                                            fontSize: _s(
+                                              context,
+                                              13,
+                                            ).clamp(12.0, 17.0),
+                                            color: AppColors.primary,
+                                            decoration:
+                                                TextDecoration.underline,
+                                            fontWeight: FontWeight.w900,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    SizedBox(height: _s(context, 12)),
-                    const _MoreSection(showSignOut: false),
-                  ],
+                      SizedBox(height: _s(context, 12)),
+                      const _MoreSection(showSignOut: false),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
