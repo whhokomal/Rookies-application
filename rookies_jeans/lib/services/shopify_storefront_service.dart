@@ -1174,18 +1174,20 @@ for (final e in rawVariantEdges) {
     }
   }
 
-  /// The signed-out Profile screen's photo, from the shop metafield
-  /// `custom.welcome_image` (a file reference). Null when it isn't set, so
-  /// the screen falls back to the bundled image.
+  /// The signed-out Profile screen's photo, from the first `welcome_image`
+  /// metaobject. Null when there is no entry, so the screen falls back to
+  /// the bundled image.
   Future<String?> getWelcomeImage() =>
       _cachedFetch('welcomeImage', _fetchWelcomeImage);
 
   Future<String?> _fetchWelcomeImage() async {
     const String query = r'''
       query getWelcomeImage {
-        shop {
-          welcomeImage: metafield(namespace: "custom", key: "welcome_image") {
-            reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } }
+        metaobjects(type: "welcome_image", first: 1) {
+          edges {
+            node {
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
+            }
           }
         }
       }
@@ -1195,7 +1197,9 @@ for (final e in rawVariantEdges) {
       final res = await ShopifyGraphQL.post(query);
       _log('getWelcomeImage → ${res.statusCode}');
       if (res.hasErrors || res.data == null) return null;
-      return res.data!['shop']?['welcomeImage']?['reference']?['image']?['url']
+      final edges = (res.data!['metaobjects']?['edges'] as List?) ?? [];
+      if (edges.isEmpty) return null;
+      return edges.first['node']?['image']?['reference']?['image']?['url']
           as String?;
     } catch (e) {
       _log('getWelcomeImage EXCEPTION: $e');

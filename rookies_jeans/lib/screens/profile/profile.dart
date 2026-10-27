@@ -33,7 +33,7 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-/// The welcome photo: the shop's `custom.welcome_image` metafield when set,
+/// The welcome photo: the `welcome_image` metaobject's image when set,
 /// otherwise the bundled image.
 class _WelcomeImage extends StatefulWidget {
   const _WelcomeImage();
