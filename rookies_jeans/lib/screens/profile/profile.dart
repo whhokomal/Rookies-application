@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rookies_jeans/constants/app_ui.dart';
@@ -6,6 +7,7 @@ import 'package:rookies_jeans/models/shop_policy_model.dart';
 import 'package:rookies_jeans/screens/profile/policy_screen.dart';
 import 'package:rookies_jeans/services/auth_service.dart';
 import 'package:rookies_jeans/services/otp_auth_service.dart';
+import 'package:rookies_jeans/services/shopify_storefront_service.dart';
 import 'package:rookies_jeans/widgets/web_view_screen.dart';
 
 const double _kMaxContentW = 640;
@@ -26,6 +28,55 @@ class ProfileScreen extends StatelessWidget {
         return AuthService.instance.isLoggedIn
             ? _LoggedInProfile()
             : _LoggedOutProfile();
+      },
+    );
+  }
+}
+
+/// The welcome photo: the shop's `custom.welcome_image` metafield when set,
+/// otherwise the bundled image.
+class _WelcomeImage extends StatefulWidget {
+  const _WelcomeImage();
+
+  @override
+  State<_WelcomeImage> createState() => _WelcomeImageState();
+}
+
+class _WelcomeImageState extends State<_WelcomeImage> {
+  late final Future<String?> _url =
+      ShopifyStorefrontService.instance.getWelcomeImage();
+
+  Widget _fallback(BuildContext context) => Image.asset(
+        'assets/welcome_model.png',
+        fit: BoxFit.cover,
+        alignment: Alignment.topCenter,
+        errorBuilder: (_, _, _) => Container(
+          color: AppColors.fieldFill,
+          child: Icon(
+            Icons.person,
+            size: _s(context, 96).clamp(72.0, 140.0),
+            color: AppColors.secondaryText,
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _url,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return Container(color: AppColors.fieldFill);
+        }
+        final url = snap.data;
+        if (url == null || url.isEmpty) return _fallback(context);
+        return CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
+          placeholder: (_, _) => Container(color: AppColors.fieldFill),
+          errorWidget: (_, _, _) => _fallback(context),
+        );
       },
     );
   }
@@ -59,19 +110,7 @@ class _LoggedOutProfile extends StatelessWidget {
                       SizedBox(
                         width: double.infinity,
                         height: halfH,
-                        child: Image.asset(
-                          'assets/welcome_model.png',
-                          fit: BoxFit.cover,
-                          alignment: Alignment.topCenter,
-                          errorBuilder: (_, _, _) => Container(
-                            color: AppColors.fieldFill,
-                            child: Icon(
-                              Icons.person,
-                              size: _s(context, 96).clamp(72.0, 140.0),
-                              color: AppColors.secondaryText,
-                            ),
-                          ),
-                        ),
+                        child: const _WelcomeImage(),
                       ),
                       Container(
                         color: AppColors.card,
