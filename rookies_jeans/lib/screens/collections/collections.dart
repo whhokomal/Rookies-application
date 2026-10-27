@@ -317,11 +317,11 @@ class _MenuRow extends StatelessWidget {
   }
 }
 
-/// The two-column "category name (bold) + list of fits" grid shown under an
-/// expanded Top Wear / Bottom Wear panel — matches the merchant's menu
-/// design: categories alternate left/right column in the order Shopify
-/// returns them.
-class _CategoriesGrid extends StatelessWidget {
+/// The categories under an expanded Top Wear / Bottom Wear panel, as a
+/// nested accordion matching the website menu: each category is a bold,
+/// indented row with +/−, and opening it lists "All SHIRTS" (etc.) and its
+/// fits. Only one category is open at a time.
+class _CategoriesGrid extends StatefulWidget {
   const _CategoriesGrid({
     required this.categories,
     required this.headFont,
@@ -341,82 +341,134 @@ class _CategoriesGrid extends StatelessWidget {
   ) onFitTap;
 
   @override
+  State<_CategoriesGrid> createState() => _CategoriesGridState();
+}
+
+class _CategoriesGridState extends State<_CategoriesGrid> {
+  /// Indent of category rows (and their fits) under the section row.
+  static const double _indent = 36;
+
+  /// Fits step in a further level under their category row.
+  static const double _fitIndent = _indent + 24;
+
+  int? _expandedIndex;
+
+  @override
   Widget build(BuildContext context) {
-    if (categories.isEmpty) {
+    if (widget.categories.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+        padding: const EdgeInsets.fromLTRB(_indent, 4, 16, 20),
         child: Text(
           'No categories found',
-          style: TextStyle(fontFamily: bodyFont, color: AppColors.secondaryText),
+          style: TextStyle(
+            fontFamily: widget.bodyFont,
+            color: AppColors.secondaryText,
+          ),
         ),
       );
     }
 
-    final List<ShopMenuCategory> left = [];
-    final List<ShopMenuCategory> right = [];
-    for (int i = 0; i < categories.length; i++) {
-      (i.isEven ? left : right).add(categories[i]);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: left.map(_block).toList(),
-            ),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: right.map(_block).toList(),
-            ),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (int i = 0; i < widget.categories.length; i++)
+          _category(i, widget.categories[i]),
+        const SizedBox(height: 8),
+      ],
     );
   }
 
-  Widget _block(ShopMenuCategory category) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: () => onCategoryTap(category.title, category.collectionHandle),
-            child: Text(
-              category.title,
-              style: TextStyle(
-                fontFamily: headFont,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          for (final fit in category.fits)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: GestureDetector(
-                onTap: () =>
-                    onFitTap(category.title, category.collectionHandle, fit),
-                child: Text(
-                  fit.title,
-                  style: TextStyle(
-                    fontFamily: bodyFont,
-                    fontSize: 13,
-                    color: AppColors.secondaryText,
+  Widget _category(int index, ShopMenuCategory category) {
+    final bool expanded = _expandedIndex == index;
+    final bool hasAll = category.collectionHandle.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _expandedIndex = expanded ? null : index),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(_indent, 16, 16, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    category.title.toUpperCase(),
+                    style: TextStyle(
+                      fontFamily: widget.headFont,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
-              ),
+                Icon(
+                  expanded ? Icons.remove_rounded : Icons.add_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ],
             ),
-        ],
+          ),
+        ),
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 200),
+          crossFadeState:
+              expanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+          firstChild: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (hasAll)
+                  _fitRow(
+                    'ALL ${category.title.toUpperCase()}',
+                    () => widget.onCategoryTap(
+                      category.title,
+                      category.collectionHandle,
+                    ),
+                  ),
+                for (final fit in category.fits)
+                  _fitRow(
+                    fit.title.toUpperCase(),
+                    () => widget.onFitTap(
+                      category.title,
+                      category.collectionHandle,
+                      fit,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          secondChild: const SizedBox(width: double.infinity),
+        ),
+        // No divider under the last category; the section's own divider
+        // follows it.
+        if (index < widget.categories.length - 1)
+          Padding(
+            padding: const EdgeInsets.only(left: _indent, right: 16),
+            child: Divider(height: 1, thickness: 1, color: AppColors.border),
+          ),
+      ],
+    );
+  }
+
+  Widget _fitRow(String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(_fitIndent, 12, 16, 12),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: widget.bodyFont,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.8,
+            color: AppColors.secondaryText,
+          ),
+        ),
       ),
     );
   }

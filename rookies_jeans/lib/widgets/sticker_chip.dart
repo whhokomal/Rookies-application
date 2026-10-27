@@ -203,8 +203,9 @@ class GlassFilterPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            _GlassCaption(caption),
-            const SizedBox(width: 8),
+            // Caption glass pill hidden for now.
+            // _GlassCaption(caption),
+            // const SizedBox(width: 8),
             for (final option in options)
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -263,6 +264,7 @@ class GlassFilterPill extends StatelessWidget {
 /// thin white rim, top-lit sheen, 1px highlight along the top edge), but
 /// with a near-transparent tint so the page shows through instead of
 /// turning grey. Text follows the theme ink so it stays readable.
+// ignore: unused_element
 class _GlassCaption extends StatelessWidget {
   const _GlassCaption(this.text);
 
