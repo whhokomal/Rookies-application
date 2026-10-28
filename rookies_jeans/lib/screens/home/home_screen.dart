@@ -844,12 +844,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? CachedNetworkImage(
                     imageUrl: cat.imageUrl!,
                     fit: BoxFit.cover,
-                    placeholder: (_, _) =>
-                        Container(color: const Color(0xFF555555)),
+                    // Light fill while loading so cards scrolling into
+                    // view don't flash a dark box before the photo lands.
+                    placeholder: (_, _) => Container(color: AppColors.fieldFill),
                     errorWidget: (_, _, _) =>
-                        Container(color: const Color(0xFF555555)),
+                        Container(color: AppColors.fieldFill),
                   )
-                : Container(color: const Color(0xFF555555)),
+                : Container(color: AppColors.fieldFill),
             label: cat.label,
             width: cardWidth,
             height: cardHeight,
@@ -912,13 +913,32 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Product photos are 2:3 portrait, so the image box uses that shape and
+  /// `BoxFit.cover` never trims heads or shoes off the top and bottom.
+  static const double _kExploreImageAspect = 2 / 3;
+
+  /// Grid cell height: the 2:3 image plus the title / price / swatch block
+  /// below it, so the image never has to shrink to fit the text.
+  double _exploreCardExtent(R r, double gridWidth, double crossSpacing) {
+    final cardWidth = (gridWidth - crossSpacing) / 2;
+    final scaler = MediaQuery.textScalerOf(context);
+    final textBlock = r.dp(8) +
+        scaler.scale(r.sp(12)) * 1.25 +
+        r.dp(4) +
+        scaler.scale(r.sp(13)) * 1.4 +
+        r.dp(6) +
+        14;
+    return cardWidth / _kExploreImageAspect + textBlock + 2;
+  }
+
   Widget _collectionProductCard(_ShopifyProductItem product, R r) {
     return GestureDetector(
       onTap: () => _openProductDetailFromExplore(product),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
+          AspectRatio(
+            aspectRatio: _kExploreImageAspect,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -1326,19 +1346,25 @@ class _HomeScreenState extends State<HomeScreen> {
               child: AnimatedOpacity(
                 opacity: _exploreLoadingFirst ? 0.4 : 1,
                 duration: const Duration(milliseconds: 150),
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _exploreProducts.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: r.dp(16),
-                    crossAxisSpacing: r.dp(12),
-                    childAspectRatio: 0.62,
-                  ),
-                  itemBuilder: (_, i) => _collectionProductCard(
-                    _mapShopifyProduct(_exploreProducts[i]),
-                    r,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _exploreProducts.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: r.dp(16),
+                      crossAxisSpacing: r.dp(12),
+                      mainAxisExtent: _exploreCardExtent(
+                        r,
+                        constraints.maxWidth,
+                        r.dp(12),
+                      ),
+                    ),
+                    itemBuilder: (_, i) => _collectionProductCard(
+                      _mapShopifyProduct(_exploreProducts[i]),
+                      r,
+                    ),
                   ),
                 ),
               ),
@@ -1389,16 +1415,24 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(height: r.dp(16)),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: r.dp(16)),
-            child: GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: r.dp(12),
-              mainAxisSpacing: r.dp(16),
-              childAspectRatio: 0.62,
-              children: List.generate(
-                4,
-                (_) => _ShimmerBox(height: double.infinity),
+            child: LayoutBuilder(
+              builder: (context, constraints) => GridView(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: r.dp(12),
+                  mainAxisSpacing: r.dp(16),
+                  mainAxisExtent: _exploreCardExtent(
+                    r,
+                    constraints.maxWidth,
+                    r.dp(12),
+                  ),
+                ),
+                children: List.generate(
+                  4,
+                  (_) => _ShimmerBox(height: double.infinity),
+                ),
               ),
             ),
           ),
