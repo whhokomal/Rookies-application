@@ -75,6 +75,8 @@ class _SplashScreenState extends State<SplashScreen> {
     }
     if (!mounted) return;
     context.go('/home');
+    // Asks once (the system remembers the answer) and registers for pushes.
+    NotificationService.instance.requestPermission();
     // Opened by tapping a notification: show what it was about.
     final link = NotificationService.instance.takePendingLink();
     if (link != null) NotificationService.instance.openLink?.call(link);

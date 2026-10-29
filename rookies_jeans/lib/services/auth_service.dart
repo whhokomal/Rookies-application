@@ -59,7 +59,6 @@ class AuthService extends ChangeNotifier {
     // Links this install to the customer, so order and shipping updates
     // reach this phone.
     NotificationService.instance.register();
-    NotificationService.instance.requestPermission();
   }
 
   void _setCustomer(ShopifyCustomer customer) {

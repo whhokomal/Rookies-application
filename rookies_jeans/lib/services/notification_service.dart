@@ -23,7 +23,6 @@ class NotificationService {
   static final NotificationService instance = NotificationService._();
 
   static const String _installIdKey = 'notifications_install_id';
-  static const String _askedKey = 'notifications_permission_asked';
 
   /// Android channels; the worker picks one per message.
   static const _ordersChannel = AndroidNotificationChannel(
@@ -61,11 +60,19 @@ class NotificationService {
 
   Future<void> initialize() async {
     try {
-      await Firebase.initializeApp();
+      // ID first, so a Firebase failure can still be reported.
       final prefs = await SharedPreferences.getInstance();
       _installId = prefs.getString(_installIdKey) ?? _newInstallId();
       await prefs.setString(_installIdKey, _installId!);
+      await Firebase.initializeApp();
+    } catch (e) {
+      _reportError('firebase', e);
+      return;
+    }
+    _ready = true;
 
+    // Each step on its own: one failing must not stop pushes altogether.
+    await _step('local', () async {
       await _local.initialize(
         settings: const InitializationSettings(
           android: AndroidInitializationSettings('ic_notification'),
@@ -82,8 +89,10 @@ class NotificationService {
           AndroidFlutterLocalNotificationsPlugin>();
       await android?.createNotificationChannel(_ordersChannel);
       await android?.createNotificationChannel(_offersChannel);
+    });
 
-      final messaging = FirebaseMessaging.instance;
+    final messaging = FirebaseMessaging.instance;
+    await _step('messaging', () async {
       // iOS shows pushes that arrive while the app is open by itself;
       // Android needs the local notification below.
       await messaging.setForegroundNotificationPresentationOptions(
@@ -95,35 +104,45 @@ class NotificationService {
       // the FCM HTTP v1 send API takes, so keep them until it moves.
       // ignore: deprecated_member_use
       messaging.onTokenRefresh.listen((_) => register());
-
-      final launch = await messaging.getInitialMessage();
+    });
+    await _step('launch message', () async {
+      final launch = await messaging
+          .getInitialMessage()
+          .timeout(const Duration(seconds: 3));
       _pendingLink = launch?.data['link'] as String?;
+    });
+  }
 
-      _ready = true;
-      // Already allowed (asked on an earlier launch): keep the worker's
-      // token and sign-in state fresh.
-      final settings = await messaging.getNotificationSettings();
-      if (_isAllowed(settings.authorizationStatus)) unawaited(register());
+  Future<void> _step(String where, Future<void> Function() run) async {
+    try {
+      await run();
     } catch (e) {
-      _log('initialize failed: $e');
+      _reportError(where, e);
     }
   }
 
-  /// Asks for permission the first time it's called (call it at a moment
-  /// the customer sees the value: after adding to cart or wishlist, after
-  /// signing in), then registers this install with the worker.
+  /// Logs a failure and tells the worker, which prints it in its logs
+  /// (`npm run logs`), since release builds show nothing on the phone.
+  void _reportError(String where, Object e) {
+    _log('$where failed: $e');
+    unawaited(_post('event', {
+      'type': 'app_error',
+      'data': {'where': where, 'error': '$e'},
+    }));
+  }
+
+  /// Shows the system permission prompt if the customer hasn't answered it
+  /// yet (the system shows it only once), then registers this install with
+  /// the worker. Called when home first opens.
   Future<void> requestPermission() async {
     if (!_ready) return;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool(_askedKey) ?? false) return;
-      await prefs.setBool(_askedKey, true);
       final settings = await FirebaseMessaging.instance.requestPermission();
       _log('permission: ${settings.authorizationStatus}');
-      await register();
     } catch (e) {
-      _log('requestPermission failed: $e');
+      _reportError('permission', e);
     }
+    await register();
   }
 
   /// Sends this install's push token and signed-in customer to the worker.
@@ -149,7 +168,7 @@ class NotificationService {
             await ShopifyAuthService.instance.getSavedCustomerToken(),
       });
     } catch (e) {
-      _log('register failed: $e');
+      _reportError('register', e);
     }
   }
 

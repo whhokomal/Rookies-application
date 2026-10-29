@@ -63,7 +63,6 @@ class WishlistService extends ChangeNotifier {
         'title': product.title,
         'image': product.primaryImageUrl,
       });
-      NotificationService.instance.requestPermission();
     }
     notifyListeners();
     _save();

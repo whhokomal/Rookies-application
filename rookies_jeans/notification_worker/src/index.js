@@ -14,6 +14,7 @@
 //       wishlist_added     {productId, handle, title, image}
 //       wishlist_removed   {productId}
 //       signed_out         {}
+//       app_error          {where, error}   (only logged, for debugging)
 //   POST /webhooks/shopify            Shopify order webhooks (HMAC-checked)
 //   POST /admin/broadcast             {title, body, link?, image?, audience?, sendAt?}
 //   POST /admin/setup-webhooks        subscribes the Shopify order webhooks
@@ -167,6 +168,9 @@ async function appEvent(body, env) {
       await env.DB.prepare(
         'UPDATE devices SET customer_id = NULL, email = NULL, phone10 = NULL, first_name = NULL WHERE install_id = ?',
       ).bind(id).run();
+      break;
+    case 'app_error':
+      console.warn(`app error on ${id}: ${str(data.where)}: ${str(data.error)}`);
       break;
     default:
       return json({ error: 'Unknown event.' }, 400);

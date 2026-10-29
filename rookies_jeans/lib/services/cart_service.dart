@@ -238,7 +238,7 @@ class CartService extends ChangeNotifier {
         }
 
         await _refresh();
-        _reportCart(added: true);
+        _reportCart();
         return true;
       } catch (e) {
         _log('addLine EXCEPTION: $e');
@@ -252,19 +252,17 @@ class CartService extends ChangeNotifier {
     if (newCartId == null) return false;
     await _persistCartId(newCartId);
     await _refresh();
-    _reportCart(added: true);
+    _reportCart();
     return true;
   }
 
   /// Tells the notification worker what's in the cart (it plans or cancels
-  /// cart reminders), and asks for notification permission after the first
-  /// add, when a reminder is obviously useful.
-  void _reportCart({bool added = false}) {
+  /// cart reminders).
+  void _reportCart() {
     NotificationService.instance.track('cart_updated', {
       'cartId': _cartId,
       'count': _cart.totalQuantity,
     });
-    if (added) NotificationService.instance.requestPermission();
   }
 
   Future<bool> updateLineQuantity({required String lineId, required int quantity}) async {
