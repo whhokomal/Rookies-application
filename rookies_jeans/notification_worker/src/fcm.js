@@ -40,7 +40,12 @@ export async function sendPush(env, fcmToken, message, { transactional }) {
             },
           },
           apns: {
-            payload: { aps: { sound: 'default', 'mutable-content': 1 } },
+            // A visible alert, delivered at once even when the app is
+            // closed (priority 5 lets iOS hold it back to save power).
+            headers: { 'apns-push-type': 'alert', 'apns-priority': '10' },
+            payload: {
+              aps: { sound: 'default', 'mutable-content': 1, 'interruption-level': 'active' },
+            },
             ...(message.image ? { fcm_options: { image: message.image } } : {}),
           },
         },
