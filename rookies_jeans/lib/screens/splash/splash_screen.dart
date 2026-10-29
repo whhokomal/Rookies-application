@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rookies_jeans/services/notification_service.dart';
 import 'package:video_player/video_player.dart';
 
 /// Plays assets/Splashscreen.mp4 full screen once, then opens home. If the
@@ -74,6 +75,9 @@ class _SplashScreenState extends State<SplashScreen> {
     }
     if (!mounted) return;
     context.go('/home');
+    // Opened by tapping a notification: show what it was about.
+    final link = NotificationService.instance.takePendingLink();
+    if (link != null) NotificationService.instance.openLink?.call(link);
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rookies_jeans/services/shopify_api.dart';
 import 'package:rookies_jeans/models/cart_model.dart';
+import 'package:rookies_jeans/services/notification_service.dart';
 
 class CartService extends ChangeNotifier {
   CartService._();
@@ -237,6 +238,7 @@ class CartService extends ChangeNotifier {
         }
 
         await _refresh();
+        _reportCart(added: true);
         return true;
       } catch (e) {
         _log('addLine EXCEPTION: $e');
@@ -250,7 +252,19 @@ class CartService extends ChangeNotifier {
     if (newCartId == null) return false;
     await _persistCartId(newCartId);
     await _refresh();
+    _reportCart(added: true);
     return true;
+  }
+
+  /// Tells the notification worker what's in the cart (it plans or cancels
+  /// cart reminders), and asks for notification permission after the first
+  /// add, when a reminder is obviously useful.
+  void _reportCart({bool added = false}) {
+    NotificationService.instance.track('cart_updated', {
+      'cartId': _cartId,
+      'count': _cart.totalQuantity,
+    });
+    if (added) NotificationService.instance.requestPermission();
   }
 
   Future<bool> updateLineQuantity({required String lineId, required int quantity}) async {
@@ -289,6 +303,7 @@ class CartService extends ChangeNotifier {
         }
 
         await _refresh();
+        _reportCart();
         return true;
       } catch (e) {
         _log('updateLineQuantity EXCEPTION: $e');
@@ -325,6 +340,7 @@ class CartService extends ChangeNotifier {
         }
 
         await _refresh();
+        _reportCart();
         return true;
       } catch (e) {
         _log('removeLine EXCEPTION: $e');
@@ -337,5 +353,6 @@ class CartService extends ChangeNotifier {
     await _clearPersistedCartId();
     _cart = ShopifyCart.empty;
     notifyListeners();
+    _reportCart();
   }
 }

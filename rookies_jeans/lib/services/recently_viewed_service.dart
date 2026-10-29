@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:rookies_jeans/models/product_model.dart';
+import 'package:rookies_jeans/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Products the customer has opened, newest first. Saved on the device so
@@ -55,6 +56,13 @@ class RecentlyViewedService extends ChangeNotifier {
     if (_items.length > _maxItems) _items.removeRange(_maxItems, _items.length);
     notifyListeners();
     _save();
+    // Lets the worker send a "still thinking about it?" reminder.
+    NotificationService.instance.track('product_viewed', {
+      'productId': product.id,
+      'handle': product.handle,
+      'title': product.title,
+      'image': product.primaryImageUrl,
+    });
   }
 
   void clear() {

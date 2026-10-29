@@ -33,6 +33,11 @@ class ShopifyConstants {
   static const String otpLoginUrl =
       'https://otploginworker.vercel.app/api';
 
+  /// Push notification backend (notification_worker/): the Cloudflare
+  /// worker URL printed by `npm run deploy`, without a trailing slash.
+  static const String notificationsUrl =
+      'https://rookies-notifications.nkomal3003.workers.dev';
+
   /// App Store / Play review demo number: no SMS is sent, the OTP is checked
   /// by the worker against its REVIEW_OTP secret (must match REVIEW_PHONE).
   static const String reviewPhone = '+916123450987';

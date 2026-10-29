@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:rookies_jeans/models/shopify_customer_model.dart';
 import 'package:rookies_jeans/services/address_service.dart';
+import 'package:rookies_jeans/services/notification_service.dart';
 import 'package:rookies_jeans/services/shopify_auth_service.dart';
 
 /// Who is signed in, for the UI. The customer token itself lives in
@@ -55,6 +56,10 @@ class AuthService extends ChangeNotifier {
       refreshProfile();
     }
     notifyListeners();
+    // Links this install to the customer, so order and shipping updates
+    // reach this phone.
+    NotificationService.instance.register();
+    NotificationService.instance.requestPermission();
   }
 
   void _setCustomer(ShopifyCustomer customer) {
@@ -92,6 +97,7 @@ class AuthService extends ChangeNotifier {
   Future<void> signOut() async {
     await ShopifyAuthService.instance.logout();
     AddressService.instance.clearAddresses();
+    NotificationService.instance.track('signed_out');
     _firstName  = '';
     _lastName   = '';
     _email      = '';

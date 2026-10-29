@@ -7,6 +7,10 @@
 	     (https://rookiesjeans.com/products/...) open the app. Requires
 	     https://rookiesjeans.com/.well-known/apple-app-site-association
 	     to be hosted on the store domain. -->
+	<!-- Push notifications. Xcode switches this to "production" when the
+	     app is archived for the App Store. -->
+	<key>aps-environment</key>
+	<string>development</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:rookiesjeans.com</string>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "941943797484",
+    "project_id": "rookies-jeans",
+    "storage_bucket": "rookies-jeans.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:941943797484:android:96c76ce5324940c7dd97c9",
+        "android_client_info": {
+          "package_name": "com.rookiesjeans.rookiesjeans"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBPuiL5PG--mYd50R8XepzL3MHmaavXJpY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

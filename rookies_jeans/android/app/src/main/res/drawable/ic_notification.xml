@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar icon for push notifications. Android draws it as a white
+     silhouette, so only the shape matters: a bold "R". Replace with the
+     Rookies logo outline (white on transparent) when one is available. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6,3h7a5,5 0,0 1,1.6 9.74L18.5,21h-3.6l-3.5,-8H9.2v8H6ZM9.2,5.9v4.3h3.6a2.15,2.15 0,0 0,0 -4.3Z" />
+</vector>

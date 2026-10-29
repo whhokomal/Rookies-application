@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:rookies_jeans/models/product_model.dart';
+import 'package:rookies_jeans/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wishlisted products, newest last. Saved on the device so the list
@@ -52,8 +53,17 @@ class WishlistService extends ChangeNotifier {
   void toggleProduct(ShopifyProduct product) {
     if (_wishlistProducts.containsKey(product.id)) {
       _wishlistProducts.remove(product.id);
+      _reportRemoved(product.id);
     } else {
       _wishlistProducts[product.id] = product;
+      // Restock and price-drop alerts watch wishlisted products.
+      NotificationService.instance.track('wishlist_added', {
+        'productId': product.id,
+        'handle': product.handle,
+        'title': product.title,
+        'image': product.primaryImageUrl,
+      });
+      NotificationService.instance.requestPermission();
     }
     notifyListeners();
     _save();
@@ -61,11 +71,18 @@ class WishlistService extends ChangeNotifier {
 
   void removeById(String productId) {
     _wishlistProducts.remove(productId);
+    _reportRemoved(productId);
     notifyListeners();
     _save();
   }
 
+  void _reportRemoved(String productId) {
+    NotificationService.instance
+        .track('wishlist_removed', {'productId': productId});
+  }
+
   void clear() {
+    _wishlistProducts.keys.forEach(_reportRemoved);
     _wishlistProducts.clear();
     notifyListeners();
     _save();

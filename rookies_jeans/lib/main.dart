@@ -21,6 +21,7 @@ import 'package:rookies_jeans/models/collection_model.dart';
 import 'package:rookies_jeans/screens/search/search_tab_page.dart';
 import 'package:rookies_jeans/screens/splash/splash_screen.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
+import 'package:rookies_jeans/services/notification_service.dart';
 import 'package:rookies_jeans/services/recently_viewed_service.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
 import 'package:rookies_jeans/services/wishlist_service.dart';
@@ -40,7 +41,9 @@ void main() async {
   SplashScreen.startup = Future.wait([
     AuthService.instance.initialize(),
     ThemeService.instance.initialize(),
+    NotificationService.instance.initialize(),
   ]);
+  NotificationService.instance.openLink = _openNotificationLink;
 
   // Load home's content while the splash plays; HomeScreen picks it up from
   // the service cache. Failures are ignored here — home retries on its own.
@@ -184,6 +187,17 @@ final GoRouter _appRouter = GoRouter(
     ),
   ],
 );
+
+/// Opens the page a tapped notification points to. Tabs are switched to;
+/// other pages open on top of the current one so back returns there.
+void _openNotificationLink(String link) {
+  const tabs = {'/category', '/search', '/home', '/profile', '/cart'};
+  if (tabs.contains(link)) {
+    _appRouter.go(link);
+  } else {
+    _appRouter.push(link);
+  }
+}
 
 class ScaffoldWithNavBar extends StatelessWidget {
   const ScaffoldWithNavBar({super.key, required this.navigationShell});

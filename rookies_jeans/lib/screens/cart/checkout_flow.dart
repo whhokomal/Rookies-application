@@ -5,6 +5,7 @@ import 'package:rookies_jeans/screens/authentication/login_screen.dart';
 import 'package:rookies_jeans/screens/cart/checkout.dart';
 import 'package:rookies_jeans/screens/profile/address_book.dart';
 import 'package:rookies_jeans/services/address_service.dart';
+import 'package:rookies_jeans/services/notification_service.dart';
 import 'package:rookies_jeans/services/shopify_auth_service.dart';
 
 /// Runs the full checkout flow for [lines]: sign in if needed, pick a
@@ -50,11 +51,15 @@ Future<bool> runCheckoutFlow(
   // Checkout runs through GoKwik; Shopify's native checkoutUrl is not
   // used (its payment providers are disabled). Pushed on the root navigator
   // so it covers the bottom nav bar instead of opening inside the cart tab.
+  // If no order comes through, the worker sends "your order is not placed
+  // yet" reminders; an order (here or via Shopify's webhook) cancels them.
+  NotificationService.instance.track('checkout_started');
   final result = await Navigator.of(context, rootNavigator: true).push<bool>(
     MaterialPageRoute(
       builder: (_) => CheckoutWebView(lines: lines),
       fullscreenDialog: true,
     ),
   );
+  if (result == true) NotificationService.instance.track('checkout_completed');
   return result == true;
 }
