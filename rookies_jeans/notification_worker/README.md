@@ -65,6 +65,13 @@ curl -X POST https://<worker-url>/admin/setup-webhooks -H "Authorization: Bearer
 
 ## Sending a campaign (new drop, sale)
 
+Open **https://rookies-notifications.nkomal3003.workers.dev/admin**, enter
+the ADMIN_KEY once, write the message and press Send (or schedule it). The
+page previews the notification, can send a test to one phone, lists recent
+sends and cancels scheduled ones.
+
+The same from the command line:
+
 ```bash
 curl -X POST https://<worker-url>/admin/broadcast \
   -H "Authorization: Bearer <ADMIN_KEY>" -H "Content-Type: application/json" \

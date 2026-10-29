@@ -16,7 +16,10 @@
 //       signed_out         {}
 //       app_error          {where, error}   (only logged, for debugging)
 //   POST /webhooks/shopify            Shopify order webhooks (HMAC-checked)
+//   GET  /admin                       page for sending notifications by hand
 //   POST /admin/broadcast             {title, body, link?, image?, audience?, sendAt?}
+//   GET  /admin/campaigns             recent broadcasts and how many went out
+//   POST /admin/cancel                {campaign} cancels its messages still waiting
 //   POST /admin/setup-webhooks        subscribes the Shopify order webhooks
 //   GET  /admin/stats
 //   GET  /health
@@ -29,6 +32,7 @@
 
 import { FLOWS, flowDef, DAY } from './flows.js';
 import { sendPush } from './fcm.js';
+import { ADMIN_PAGE } from './admin-page.js';
 import {
   cartSummary, customerForToken, isValidWebhook, productStates, registerWebhooks,
 } from './shopify.js';
@@ -53,6 +57,9 @@ async function handleRequest(request, env) {
 
   try {
     if (request.method === 'GET' && path === '/health') return json({ ok: true });
+    if (request.method === 'GET' && path === '/admin') {
+      return new Response(ADMIN_PAGE, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
     if (path === '/webhooks/shopify' && request.method === 'POST') return await shopifyWebhook(request, env);
     if (path.startsWith('/admin/')) {
       if (!env.ADMIN_KEY || request.headers.get('Authorization') !== `Bearer ${env.ADMIN_KEY}`) {
@@ -60,6 +67,8 @@ async function handleRequest(request, env) {
       }
       if (path === '/admin/stats' && request.method === 'GET') return await stats(env);
       if (path === '/admin/broadcast' && request.method === 'POST') return await broadcast(await request.json(), env);
+      if (path === '/admin/campaigns' && request.method === 'GET') return await campaigns(env);
+      if (path === '/admin/cancel' && request.method === 'POST') return await cancelCampaign(await request.json(), env);
       if (path === '/admin/setup-webhooks' && request.method === 'POST') {
         const uri = `${new URL(request.url).origin}/webhooks/shopify`;
         return json(await registerWebhooks(uri, env));
@@ -524,7 +533,47 @@ async function stats(env) {
     `SELECT substr(flow, 1, instr(flow || ':', ':') - 1) AS flow, status, COUNT(*) AS n
      FROM jobs WHERE created_at > ? GROUP BY 1, 2 ORDER BY 1, 2`,
   ).bind(Date.now() - 7 * DAY).all();
-  return json({ devices, last7Days: results, flows: Object.keys(FLOWS) });
+  // How many reachable phones each broadcast audience has.
+  const audiences = {};
+  for (const [name, where] of Object.entries(AUDIENCES)) {
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM devices WHERE fcm_token IS NOT NULL AND enabled = 1 AND ${where}`,
+    ).first();
+    audiences[name] = row.n;
+  }
+  return json({ devices, audiences, last7Days: results, flows: Object.keys(FLOWS) });
+}
+
+/// The 30 latest broadcasts, newest first, with how many were sent and how
+/// many are still waiting (scheduled, or held by quiet hours).
+async function campaigns(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT flow, MAX(payload) AS payload, MIN(due_at) AS due_at,
+       SUM(status = 'sent') AS sent, SUM(status = 'pending') AS pending,
+       SUM(status IN ('failed', 'skipped')) AS failed,
+       SUM(status = 'cancelled') AS cancelled
+     FROM jobs WHERE flow LIKE 'campaign:%'
+     GROUP BY flow ORDER BY MAX(created_at) DESC LIMIT 30`,
+  ).all();
+  return json({
+    campaigns: results.map((r) => {
+      const p = JSON.parse(r.payload || '{}');
+      return {
+        campaign: r.flow, title: p.title, body: p.body, link: p.link,
+        dueAt: r.due_at, sent: r.sent, pending: r.pending, failed: r.failed,
+        cancelled: r.cancelled,
+      };
+    }),
+  });
+}
+
+async function cancelCampaign(body, env) {
+  const flow = String(body?.campaign || '');
+  if (!/^campaign:\d+$/.test(flow)) return json({ error: 'campaign is required' }, 400);
+  const result = await env.DB.prepare(
+    "UPDATE jobs SET status = 'cancelled' WHERE flow = ? AND status = 'pending'",
+  ).bind(flow).run();
+  return json({ cancelled: result.meta.changes });
 }
 
 // ---------------------------------------------------------------------------
