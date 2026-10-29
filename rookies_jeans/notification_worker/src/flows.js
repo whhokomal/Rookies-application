@@ -28,7 +28,7 @@ export const FLOWS = {
       {
         after: 10 * MIN,
         msg: (c) => ({
-          title: 'Welcome to Rookies 👖',
+          title: 'Welcome to Rookies',
           body: c.welcomeCoupon
             ? `Use code ${c.welcomeCoupon} for extra off on your first order.`
             : 'New fits drop every week. Have a look around.',
