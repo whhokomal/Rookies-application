@@ -14,9 +14,13 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+      # Named explicitly: the older "rookies_app_store" copy stored in
+      # Codemagic predates Push Notifications and can't sign this app.
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.rookiesjeans.rookiesjeans
+        provisioning_profiles:
+          - rookies_app_store_push
+        certificates:
+          - rookies_distribution
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
