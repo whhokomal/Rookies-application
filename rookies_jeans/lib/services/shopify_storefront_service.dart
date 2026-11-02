@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:rookies_jeans/services/shopify_api.dart';
@@ -9,6 +10,9 @@ import 'package:rookies_jeans/models/collection_model.dart';
 import 'package:rookies_jeans/models/home_content_models.dart';
 import 'package:rookies_jeans/models/shop_menu_model.dart';
 import 'package:rookies_jeans/models/shop_policy_model.dart';
+
+/// What a product card's color swatch needs about another color's product.
+typedef ColorSwatchInfo = ({bool available, String? photoUrl});
 
 class PaginatedProductsResponse {
   final List<ShopifyProduct> products;
@@ -106,6 +110,14 @@ class ShopifyStorefrontService {
     }
   }
 
+  /// Order for the home product grid, picked at random once per launch so
+  /// different products come up first instead of the upload order. Shared
+  /// with [prefetchHomeData] so the prefetched page still matches.
+  final ProductSortOption homeGridSort = (ProductSortOption.values.toList()
+        ..remove(ProductSortOption.featured)
+        ..shuffle())
+      .first;
+
   /// Warms the cache with what HomeScreen loads on open, so it can run while
   /// the splash video plays. Must stay in step with HomeScreen._fetchAll and
   /// _fetchExploreProducts (same calls, same arguments) or the cache misses.
@@ -118,7 +130,14 @@ class ShopifyStorefrontService {
         if (tabs.isNotEmpty) tabs.first.collectionHandle,
       };
       return Future.wait(
-        handles.map((h) => getProductsByCollectionPaginated(h, first: 20)),
+        handles.map(
+          (h) => getProductsByCollectionPaginated(
+            h,
+            first: 20,
+            sortKey: homeGridSort.shopifyKey,
+            reverse: homeGridSort.reverse,
+          ),
+        ),
       );
     });
     // The hero banner is the first thing on screen; download its images too,
@@ -225,6 +244,8 @@ class ShopifyStorefrontService {
               compareAtPriceRange { minVariantPrice { amount currencyCode } }
               images(first: 10) { edges { node { url(transform: {maxWidth: 800}) altText } } }
               groupData: metafield(namespace: "vkcl", key: "group_data") { value }
+              rating: metafield(namespace: "reviews", key: "rating") { value }
+              ratingCount: metafield(namespace: "reviews", key: "rating_count") { value }
               options {
                 name
                 values
@@ -487,6 +508,10 @@ for (final e in rawVariantEdges) {
           '    compareAtPriceRange { minVariantPrice { amount currencyCode } }\n');
       buffer.write('    images(first: 1) { edges { node { url(transform: {maxWidth: 800}) altText } } }\n');
       buffer.write(
+          '    rating: metafield(namespace: "reviews", key: "rating") { value }\n');
+      buffer.write(
+          '    ratingCount: metafield(namespace: "reviews", key: "rating_count") { value }\n');
+      buffer.write(
           '    options { name values optionValues { name swatch { color } } }\n');
       buffer.write('    variants(first: 10) {\n');
       buffer.write(
@@ -517,6 +542,130 @@ for (final e in rawVariantEdges) {
     } catch (e) {
       _log('_fetchProductsByHandles EXCEPTION: $e');
       return [];
+    }
+  }
+
+  /// Everything a product card shows for [handle] (same fields as the
+  /// collection grid), used when a card's color swatch is tapped and the
+  /// card swaps to that color. Null if it can't be loaded.
+  Future<ShopifyProduct?> getProductCard(String handle) => _cachedFetch(
+        'productCard:$handle',
+        () => _fetchProductCard(handle),
+      );
+
+  Future<ShopifyProduct?> _fetchProductCard(String handle) async {
+    const String query = r'''
+    query getProductCard($handle: String!) {
+      productByHandle(handle: $handle) {
+        id
+        title
+        handle
+        priceRange { minVariantPrice { amount currencyCode } }
+        compareAtPriceRange { minVariantPrice { amount currencyCode } }
+        images(first: 10) { edges { node { url(transform: {maxWidth: 800}) altText } } }
+        groupData: metafield(namespace: "vkcl", key: "group_data") { value }
+        rating: metafield(namespace: "reviews", key: "rating") { value }
+        ratingCount: metafield(namespace: "reviews", key: "rating_count") { value }
+        options {
+          name
+          values
+          optionValues { name swatch { color } }
+        }
+        variants(first: 10) {
+          edges {
+            node {
+              id
+              title
+              availableForSale
+              selectedOptions { name value }
+            }
+          }
+        }
+      }
+    }
+    ''';
+
+    try {
+      final res = await ShopifyGraphQL.post(
+        query,
+        variables: {'handle': handle},
+      );
+      _log('getProductCard [$handle] → ${res.statusCode}');
+      final decoded = res.body;
+      final node = decoded['data']?['productByHandle'];
+      if (decoded['errors'] != null || node == null) {
+        _log('getProductCard errors: ${decoded['errors']}');
+        return null;
+      }
+      final product = ShopifyProduct.fromJson(node as Map<String, dynamic>);
+      _swatchInfo[handle] = Future.value((
+        available: product.variants.any((v) => v.availableForSale),
+        photoUrl: product.primaryImageUrl,
+      ));
+      return product;
+    } catch (e) {
+      _log('_fetchProductCard EXCEPTION: $e');
+      return null;
+    }
+  }
+
+  /// Whether a product (by handle) can be bought, and a small copy of its
+  /// first photo, for the color swatches on product cards. Calls made
+  /// within a moment of each other share one request. Null when it
+  /// couldn't be checked.
+  Future<ColorSwatchInfo?> getColorSwatchInfo(String handle) =>
+      _swatchInfo.putIfAbsent(handle, () {
+        final completer = Completer<ColorSwatchInfo?>();
+        _pendingSwatchInfo[handle] = completer;
+        _swatchInfoTimer ??=
+            Timer(const Duration(milliseconds: 50), _flushSwatchInfo);
+        return completer.future;
+      });
+
+  final Map<String, Future<ColorSwatchInfo?>> _swatchInfo = {};
+  final Map<String, Completer<ColorSwatchInfo?>> _pendingSwatchInfo = {};
+  Timer? _swatchInfoTimer;
+
+  Future<void> _flushSwatchInfo() async {
+    _swatchInfoTimer = null;
+    final batch = Map.of(_pendingSwatchInfo);
+    _pendingSwatchInfo.clear();
+    final handles = batch.keys.toList();
+    // Shopify caps a query's cost, so ask in chunks.
+    for (var start = 0; start < handles.length; start += 50) {
+      final chunk = handles.skip(start).take(50).toList();
+      final buffer = StringBuffer('query getColorSwatchInfo {\n');
+      for (int i = 0; i < chunk.length; i++) {
+        final safeHandle = chunk[i].replaceAll('"', r'\"');
+        buffer.write('  p$i: productByHandle(handle: "$safeHandle") {\n');
+        buffer.write('    availableForSale\n');
+        buffer.write('    featuredImage { url(transform: {maxWidth: 80}) }\n');
+        buffer.write('  }\n');
+      }
+      buffer.write('}');
+
+      Map<String, dynamic>? data;
+      try {
+        final res = await ShopifyGraphQL.post(buffer.toString());
+        _log('getColorSwatchInfo [${chunk.length} handles] → ${res.statusCode}');
+        data = res.body['data'] as Map<String, dynamic>?;
+      } catch (e) {
+        _log('_flushSwatchInfo EXCEPTION: $e');
+      }
+      for (int i = 0; i < chunk.length; i++) {
+        final node = data?['p$i'];
+        final available = node?['availableForSale'] as bool?;
+        if (available == null) {
+          // Forget failures so a later card tries again.
+          _swatchInfo.remove(chunk[i]);
+          batch[chunk[i]]!.complete(null);
+        } else {
+          batch[chunk[i]]!.complete((
+            available: available,
+            photoUrl: node['featuredImage']?['url'] as String?,
+          ));
+        }
+      }
     }
   }
 
@@ -628,6 +777,9 @@ for (final e in rawVariantEdges) {
     return words.every((w) => w.hasMatch(haystack));
   }
 
+  static bool _isInStock(ShopifyProduct p) =>
+      p.variants.any((v) => v.availableForSale);
+
   List<RegExp> _searchWordPatterns(String raw) => raw
       .trim()
       .split(RegExp(r'\s+'))
@@ -675,6 +827,7 @@ for (final e in rawVariantEdges) {
         reverse: $reverse
         types: [PRODUCT]
         prefix: LAST
+        unavailableProducts: SHOW
         productFilters: $productFilters
       ) {
         productFilters {
@@ -702,6 +855,8 @@ for (final e in rawVariantEdges) {
               compareAtPriceRange { minVariantPrice { amount currencyCode } }
               images(first: 2) { edges { node { url(transform: {maxWidth: 800}) altText } } }
               groupData: metafield(namespace: "vkcl", key: "group_data") { value }
+              rating: metafield(namespace: "reviews", key: "rating") { value }
+              ratingCount: metafield(namespace: "reviews", key: "rating_count") { value }
               options {
                 name
                 values
@@ -800,13 +955,22 @@ for (final e in rawVariantEdges) {
             .map((f) => ShopifyFilter.fromJson(f as Map<String, dynamic>))
             .toList();
 
-        products.addAll(edges
+        // Sold-out products are ranked in place (`unavailableProducts: SHOW`)
+        // because Shopify's default (LAST) puts them past the ~500 results
+        // it lets us page through, so searching a sold-out product's exact
+        // name found nothing. In-stock matches still go first within each
+        // page.
+        final matches = edges
             .map((e) => e['node'] as Map<String, dynamic>?)
             .where((node) =>
                 node != null &&
                 node.isNotEmpty &&
                 _matchesSearchWords(node, words))
-            .map((node) => ShopifyProduct.fromJson(node!)));
+            .map((node) => ShopifyProduct.fromJson(node!))
+            .toList();
+        products
+          ..addAll(matches.where(_isInStock))
+          ..addAll(matches.where((p) => !_isInStock(p)));
 
         hasNextPage = pageInfo?['hasNextPage'] as bool? ?? false;
         cursor = pageInfo?['endCursor'] as String?;
@@ -1107,6 +1271,9 @@ for (final e in rawVariantEdges) {
             node {
               id
               label: field(key: "label") { value }
+              collection: field(key: "collection") {
+                reference { ... on Collection { handle } }
+              }
               collection_handle: field(key: "collection_handle") { value }
               sort_order: field(key: "sort_order") { value }
             }

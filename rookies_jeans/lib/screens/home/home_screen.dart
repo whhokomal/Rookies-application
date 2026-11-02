@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:rookies_jeans/utils/color_names.dart';
 import 'package:rookies_jeans/utils/format.dart';
 import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/constants/shopify_constants.dart';
@@ -17,7 +18,9 @@ import 'package:rookies_jeans/screens/products/products.dart';
 import 'package:rookies_jeans/screens/search/search_tab_page.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
+import 'package:rookies_jeans/widgets/rating_badge.dart';
 import 'package:rookies_jeans/widgets/product_swatch_row.dart';
+import 'package:rookies_jeans/widgets/product_size_row.dart';
 import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
 import 'package:rookies_jeans/widgets/banner_page_dots.dart';
 import 'package:rookies_jeans/widgets/sticker_chip.dart';
@@ -72,6 +75,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int _exploreRequestId = 0;
 
   List<ShopifyProduct> _exploreProducts = [];
+
+  /// Another color an explore card has been swapped to by tapping its
+  /// swatch, keyed by the listed product's id.
+  final Map<String, ShopifyProduct> _exploreShownColor = {};
   String? _exploreEndCursor;
   bool _exploreHasMore = true;
   bool _exploreLoadingFirst = true;
@@ -421,12 +428,16 @@ class _HomeScreenState extends State<HomeScreen> {
           .getProductsByCollectionPaginated(
             handle,
             first: 20,
+            sortKey: ShopifyStorefrontService.instance.homeGridSort.shopifyKey,
+            reverse: ShopifyStorefrontService.instance.homeGridSort.reverse,
             filters: _exploreFilterInputs,
           );
       if (!mounted || requestId != _exploreRequestId) return;
 
       setState(() {
-        _exploreProducts = response.products;
+        // Shuffled so the grid isn't always in upload order. Copied first —
+        // the response list is shared with the service cache.
+        _exploreProducts = [...response.products]..shuffle();
         _exploreEndCursor = response.endCursor;
         _exploreHasMore = response.hasNextPage;
         _exploreLoadingFirst = false;
@@ -472,12 +483,17 @@ class _HomeScreenState extends State<HomeScreen> {
             handle,
             first: 20,
             after: _exploreEndCursor,
+            sortKey: ShopifyStorefrontService.instance.homeGridSort.shopifyKey,
+            reverse: ShopifyStorefrontService.instance.homeGridSort.reverse,
             filters: _exploreFilterInputs,
           );
       if (!mounted || requestId != _exploreRequestId) return;
 
       setState(() {
-        _exploreProducts = [..._exploreProducts, ...response.products];
+        _exploreProducts = [
+          ..._exploreProducts,
+          ...([...response.products]..shuffle()),
+        ];
         _exploreEndCursor = response.endCursor;
         _exploreHasMore = response.hasNextPage;
         _exploreLoadingMore = false;
@@ -566,9 +582,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ..._promoBlockSlivers(_promoBlocksFirstHalf),
                         SliverToBoxAdapter(child: _exploreCategoriesCarousel()),
                         ..._promoBlockSlivers(_promoBlocksSecondHalf),
-                        ..._featureBannerSlivers(),
                         if (_shopTheLookOutfitsToDisplay.isNotEmpty)
                           SliverToBoxAdapter(child: _shopTheLookSection()),
+                        ..._featureBannerSlivers(),
                         SliverToBoxAdapter(child: _shopByOccasionsSection()),
                         SliverToBoxAdapter(child: _exploreCollectionsSection()),
                         const SliverToBoxAdapter(
@@ -708,6 +724,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (banners.isNotEmpty) {
       return _HeroBannerPager(
         imageUrls: [for (final b in banners) b.imageUrl!],
+        banners: banners,
         overlays: scrims,
         onTap: (i) {
           final link = banners[i].link;
@@ -927,11 +944,33 @@ class _HomeScreenState extends State<HomeScreen> {
         r.dp(4) +
         scaler.scale(r.sp(13)) * 1.4 +
         r.dp(6) +
-        14;
+        14 +
+        r.dp(6) +
+        12;
     return cardWidth / _kExploreImageAspect + textBlock + 2;
   }
 
-  Widget _collectionProductCard(_ShopifyProductItem product, R r) {
+  /// Swaps [listed]'s card to the color product [handle], fetched fresh;
+  /// tapping the listed product's own color swaps it back.
+  Future<void> _showExploreColor(ShopifyProduct listed, String handle) async {
+    final ShopifyProduct? next = handle == listed.handle
+        ? listed
+        : await ShopifyStorefrontService.instance.getProductCard(handle);
+    if (!mounted || next == null) return;
+    setState(() {
+      if (next == listed) {
+        _exploreShownColor.remove(listed.id);
+      } else {
+        _exploreShownColor[listed.id] = next;
+      }
+    });
+  }
+
+  Widget _collectionProductCard(
+    _ShopifyProductItem product,
+    R r, {
+    ValueChanged<String>? onSelectColor,
+  }) {
     return GestureDetector(
       onTap: () => _openProductDetailFromExplore(product),
       child: Column(
@@ -987,6 +1026,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       idleColor: Colors.black,
                     ),
                   ),
+                if (product.product?.hasReviews ?? false)
+                  Positioned(
+                    left: r.dp(8),
+                    bottom: r.dp(8),
+                    child: RatingBadge(
+                      rating: product.product!.rating,
+                      count: product.product!.reviewCount,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1028,14 +1076,33 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ],
           ),
-          // Reserved even when empty so every card's image is the same
-          // height.
+          // Swatches and sizes are reserved even when empty so every
+          // card's image is the same height; without swatches the sizes
+          // move up under the price.
           SizedBox(height: r.dp(6)),
           SizedBox(
-            height: 14,
-            child: product.product != null
-                ? ProductSwatchRow(product: product.product!)
-                : null,
+            height: 14 + r.dp(6) + 12,
+            child: product.product == null
+                ? null
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (ProductSwatchRow.hasSwatches(product.product!)) ...[
+                        SizedBox(
+                          height: 14,
+                          child: ProductSwatchRow(
+                            product: product.product!,
+                            onSelectColor: onSelectColor,
+                          ),
+                        ),
+                        SizedBox(height: r.dp(6)),
+                      ],
+                      SizedBox(
+                        height: 12,
+                        child: ProductSizeRow(product: product.product!),
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -1336,7 +1403,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             )
-          else if (_exploreProducts.isEmpty)
+            else if (_exploreProducts.isEmpty)
             _empty()
           else
             // While a new filter loads, the old products stay (dimmed) so
@@ -1361,10 +1428,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         r.dp(12),
                       ),
                     ),
-                    itemBuilder: (_, i) => _collectionProductCard(
-                      _mapShopifyProduct(_exploreProducts[i]),
-                      r,
-                    ),
+                    itemBuilder: (_, i) {
+                      final listed = _exploreProducts[i];
+                      return _collectionProductCard(
+                        _mapShopifyProduct(
+                          _exploreShownColor[listed.id] ?? listed,
+                        ),
+                        r,
+                        onSelectColor: (handle) =>
+                            _showExploreColor(listed, handle),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -1467,6 +1541,10 @@ class _HeroBannerPager extends StatefulWidget {
   final List<String> imageUrls;
   final Duration interval;
 
+  /// Supplies each page's button (label and colors), same order as
+  /// [imageUrls]; a banner without a button label gets no button.
+  final List<HomeBanner> banners;
+
   /// Painted over the images but beneath the page dots.
   final List<Widget> overlays;
 
@@ -1474,6 +1552,7 @@ class _HeroBannerPager extends StatefulWidget {
   final ValueChanged<int>? onTap;
   const _HeroBannerPager({
     required this.imageUrls,
+    this.banners = const [],
     this.overlays = const [],
     this.onTap,
   }) : interval = const Duration(seconds: 5);
@@ -1528,6 +1607,39 @@ class _HeroBannerPagerState extends State<_HeroBannerPager> {
     super.dispose();
   }
 
+  // Follows the banner on screen; tapping it opens that banner's link.
+  Widget _buttonFor(BuildContext context, int index) {
+    final banner = index < widget.banners.length ? widget.banners[index] : null;
+    final label = banner?.buttonLabel;
+    if (label == null) return const SizedBox.shrink();
+    final r = R.of(context);
+    return GestureDetector(
+      key: ValueKey(index),
+      onTap: widget.onTap == null ? null : () => widget.onTap!(index),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: r.dp(18),
+          vertical: r.dp(11),
+        ),
+        decoration: BoxDecoration(
+          color: hexToColor(banner!.buttonColorHex) ?? Colors.white,
+          borderRadius: BorderRadius.circular(r.dp(3)),
+        ),
+        child: Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontFamily: AppFonts.accent,
+            color: hexToColor(banner.buttonTextColorHex) ??
+                const Color(0xFF111111),
+            fontSize: r.sp(12),
+            fontWeight: FontWeight.w600,
+            letterSpacing: 2.0,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final count = _count;
@@ -1558,6 +1670,14 @@ class _HeroBannerPagerState extends State<_HeroBannerPager> {
           },
         ),
         ...widget.overlays,
+        Positioned(
+          left: BannerPageDots.right,
+          bottom: BannerPageDots.bottom - 10,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: _buttonFor(context, _page),
+          ),
+        ),
         if (count > 1)
           Positioned(
             right: BannerPageDots.right,

@@ -72,6 +72,12 @@ class ShopifyProduct {
   /// Only populated by queries that request `groupData`.
   final List<ColorGroupSwatch> colorGroupSwatches;
 
+  /// Judge.me average rating (out of 5) and number of reviews, from the
+  /// standard `reviews.rating` / `reviews.rating_count` metafields. Only
+  /// populated by queries that request them; 0 means no reviews.
+  final double rating;
+  final int reviewCount;
+
   const ShopifyProduct({
     required this.id,
     required this.title,
@@ -84,7 +90,11 @@ class ShopifyProduct {
     required this.options,
     this.createdAt,
     this.colorGroupSwatches = const [],
+    this.rating = 0,
+    this.reviewCount = 0,
   });
+
+  bool get hasReviews => reviewCount > 0 && rating > 0;
 
   bool get isOnSale => compareAtPrice != null && compareAtPrice! > price;
 
@@ -177,7 +187,22 @@ class ShopifyProduct {
           : null,
       colorGroupSwatches:
           _parseColorGroupSwatches(json['groupData']?['value'] as String?),
+      rating: _parseRating(json['rating']?['value'] as String?),
+      reviewCount:
+          int.tryParse(json['ratingCount']?['value'] as String? ?? '') ?? 0,
     );
+  }
+
+  /// The average out of a `reviews.rating` metafield value, which is JSON
+  /// like `{"scale_min":"1.0","scale_max":"5.0","value":"4.5"}`.
+  static double _parseRating(String? raw) {
+    if (raw == null || raw.isEmpty) return 0;
+    try {
+      final parsed = jsonDecode(raw);
+      return double.tryParse('${parsed['value']}') ?? 0;
+    } catch (_) {
+      return 0;
+    }
   }
 
   /// Published products from a raw `vkcl.group_data` metafield value (see
@@ -196,6 +221,9 @@ class ShopifyProduct {
           group['collection_page_swatch_source'];
       final groupId = group['group_id']?.toString();
       final useCustom = source == 'custom_swatch' && groupId != null;
+      // Groups set to "first_product_image" show each product's own first
+      // photo instead.
+      final usePhoto = source == 'first_product_image';
       final seen = <String>{};
       return [
         for (final p in products.whereType<Map<String, dynamic>>())
@@ -207,6 +235,7 @@ class ShopifyProduct {
               imageUrl: useCustom && p['id'] != null
                   ? ColorGroupSwatch.customSwatchUrl(groupId, '${p['id']}')
                   : null,
+              usesProductPhoto: usePhoto,
             ),
       ];
     } catch (_) {
@@ -225,7 +254,14 @@ class ColorGroupSwatch {
   /// color is guessed from [handle].
   final String? imageUrl;
 
-  const ColorGroupSwatch({required this.handle, this.imageUrl});
+  /// Whether the group shows each product's first photo as its swatch.
+  final bool usesProductPhoto;
+
+  const ColorGroupSwatch({
+    required this.handle,
+    this.imageUrl,
+    this.usesProductPhoto = false,
+  });
 
   /// Where the Variant King storefront script loads custom swatches from
   /// (`swatch_url_source: cdn`, `swatch_dir: vkcl`).

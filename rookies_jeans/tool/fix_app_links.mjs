@@ -13,7 +13,9 @@
 
 const SHOP = process.env.SHOPIFY_SHOP ?? 'rookies-jeans.myshopify.com';
 const CLIENT_ID = process.env.SHOPIFY_CLIENT_ID ?? '35d85518f51d38a920726303a5bfb683';
-const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
+// Or paste it into tool/.client-secret.txt (git-ignored).
+const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET ??
+  (await import("node:fs").then((fs) => { try { return fs.readFileSync(new URL("./.client-secret.txt", import.meta.url), "utf8").trim() || undefined; } catch { return undefined; } }));
 const APPLE_TEAM_ID = process.env.APPLE_TEAM_ID;
 const API_VERSION = '2025-10';
 const APPLY = process.argv.includes('--apply');
@@ -30,7 +32,7 @@ const ANDROID_FINGERPRINTS = [
 ];
 
 if (!CLIENT_SECRET) {
-  console.error('Set SHOPIFY_CLIENT_SECRET (Dev Dashboard > Rookies Mobile App Links > Settings).');
+  console.error('Set SHOPIFY_CLIENT_SECRET or paste it into tool/.client-secret.txt (Dev Dashboard > Rookies Mobile App Links > Settings).');
   process.exit(1);
 }
 
@@ -44,7 +46,21 @@ async function getToken() {
       client_secret: CLIENT_SECRET,
     }),
   });
-  const body = await res.json().catch(() => ({}));
+  const text = await res.text();
+  let body = {};
+  try {
+    body = JSON.parse(text);
+  } catch {
+    // Shopify answers OAuth errors with an HTML page; keep just its text.
+    body = {
+      raw: text
+        .replace(/<style[\s\S]*?<\/style>/g, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 600),
+    };
+  }
   if (!res.ok || !body.access_token) {
     throw new Error(`Token request failed (${res.status}): ${JSON.stringify(body)}`);
   }

@@ -159,6 +159,17 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
       })
       .then(function (r) { if (!r.ok) throw new Error('cart add ' + r.status); })
       .then(function () {
+        // Cart attributes are copied onto the order, so Shopify can tell
+        // app orders apart from website orders.
+        return fetch('/cart/update.js', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ attributes: { 'Order Source': 'App' } })
+        });
+      })
+      .then(function (r) { if (!r.ok) throw new Error('cart update ' + r.status); })
+      .then(function () {
         post('step:cart-ready');
         window.gokwikSdk.on('modal_closed', function () { post('closed'); });
         window.triggerGokwikCustomCheckout();

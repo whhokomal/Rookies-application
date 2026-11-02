@@ -153,10 +153,13 @@ class ExploreTabContent {
   });
 
   factory ExploreTabContent.fromMetaobjectJson(Map<String, dynamic> json) {
+    // The picked "Collection" wins; the old free-text handle field is the
+    // fallback for entries that haven't picked one.
+    final picked = json['collection']?['reference']?['handle'] as String?;
     return ExploreTabContent(
       id: json['id'] as String,
       label: (_textFrom(json['label']) ?? '').trim(),
-      collectionHandle: _handleFrom(_textFrom(json['collection_handle'])),
+      collectionHandle: picked ?? _handleFrom(_textFrom(json['collection_handle'])),
       sortOrder: _asInt(_textFrom(json['sort_order'])) ?? 0,
     );
   }

@@ -11,7 +11,9 @@ import 'package:rookies_jeans/screens/products/product_detail_page.dart';
 import 'package:rookies_jeans/screens/products/product_peek_dialog.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
+import 'package:rookies_jeans/widgets/rating_badge.dart';
 import 'package:rookies_jeans/widgets/product_swatch_row.dart';
+import 'package:rookies_jeans/widgets/product_size_row.dart';
 import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
 
 class _Responsive {
@@ -137,6 +139,10 @@ class _ProductsPageState extends State<ProductsPage> {
 
   final Map<String, ValueNotifier<int>> _currentImageIndex = {};
 
+  /// Another color a card has been swapped to by tapping its swatch, keyed
+  /// by the listed product's id.
+  final Map<String, ShopifyProduct> _shownColor = {};
+
   Timer? _autoScrollTimer;
   final Random _random = Random();
 
@@ -196,6 +202,7 @@ class _ProductsPageState extends State<ProductsPage> {
       _imagePageControllers.remove(id)?.dispose();
       _currentImageIndex.remove(id)?.dispose();
     }
+    _shownColor.removeWhere((id, _) => !currentIds.contains(id));
 
     for (final product in _products) {
       if (!_imagePageControllers.containsKey(product.id)) {
@@ -252,7 +259,7 @@ class _ProductsPageState extends State<ProductsPage> {
 
     final eligible = visibleIndices
         .map((i) => _products[i])
-        .where((p) => p.imageUrls.length > 1)
+        .where((p) => (_shownColor[p.id] ?? p).imageUrls.length > 1)
         .toList();
 
     if (eligible.isEmpty) return;
@@ -261,7 +268,8 @@ class _ProductsPageState extends State<ProductsPage> {
     final controller = _imagePageControllers[product.id];
     if (controller == null || !controller.hasClients) return;
 
-    final imageCount = product.imageUrls.length;
+    final imageCount =
+        (_shownColor[product.id] ?? product).imageUrls.take(2).length;
     final currentIndex = _currentImageIndex[product.id]?.value ?? 0;
     final nextIndex = (currentIndex + 1) % imageCount;
 
@@ -1345,8 +1353,30 @@ class _ProductsPageState extends State<ProductsPage> {
     return spans;
   }
 
-  Widget _productCard(ShopifyProduct product) {
-    final controller = _imagePageControllers[product.id];
+  /// Swaps [listed]'s card to the color product [handle], fetched fresh;
+  /// tapping the listed product's own color swaps it back.
+  Future<void> _showColor(ShopifyProduct listed, String handle) async {
+    final ShopifyProduct? next = handle == listed.handle
+        ? listed
+        : await ShopifyStorefrontService.instance.getProductCard(handle);
+    if (!mounted || next == null) return;
+    setState(() {
+      if (next == listed) {
+        _shownColor.remove(listed.id);
+      } else {
+        _shownColor[listed.id] = next;
+      }
+    });
+    _currentImageIndex[listed.id]?.value = 0;
+    final controller = _imagePageControllers[listed.id];
+    if (controller != null && controller.hasClients) controller.jumpToPage(0);
+  }
+
+  Widget _productCard(ShopifyProduct listed) {
+    // Page controllers stay keyed by the listed product; everything shown
+    // comes from the color the card is swapped to, if any.
+    final product = _shownColor[listed.id] ?? listed;
+    final controller = _imagePageControllers[listed.id];
     final images = product.imageUrls.take(2).toList();
     final hasMultipleImages = images.length > 1;
 
@@ -1375,7 +1405,7 @@ class _ProductsPageState extends State<ProductsPage> {
                         controller: controller,
                         physics: const BouncingScrollPhysics(),
                         onPageChanged: (index) {
-                          _currentImageIndex[product.id]?.value = index;
+                          _currentImageIndex[listed.id]?.value = index;
                         },
                         itemCount: images.length,
                         itemBuilder: (_, idx) {
@@ -1431,13 +1461,23 @@ class _ProductsPageState extends State<ProductsPage> {
                         idleColor: Colors.black,
                       ),
                     ),
+                    if (product.hasReviews)
+                      Positioned(
+                        // Sits above the image dots when there are any.
+                        bottom: hasMultipleImages ? 18 : 6,
+                        left: 6,
+                        child: RatingBadge(
+                          rating: product.rating,
+                          count: product.reviewCount,
+                        ),
+                      ),
                     if (hasMultipleImages)
                       Positioned(
                         bottom: 6,
                         left: 0,
                         right: 0,
                         child: _imageDotIndicator(
-                          product: product,
+                          product: listed,
                           count: images.length,
                         ),
                       ),
@@ -1471,12 +1511,32 @@ class _ProductsPageState extends State<ProductsPage> {
                   ),
                   const SizedBox(height: 5),
                   _priceBlock(product),
-                  // Swatch row is reserved even when empty, for the same
-                  // equal-height reason as the title.
+                  // Room for swatches and sizes is reserved even when
+                  // empty, for the same equal-height reason as the title;
+                  // without swatches the sizes move up under the price.
                   const SizedBox(height: 6),
                   SizedBox(
-                    height: 14,
-                    child: ProductSwatchRow(product: product),
+                    height: 14 + 6 + 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (ProductSwatchRow.hasSwatches(product)) ...[
+                          SizedBox(
+                            height: 14,
+                            child: ProductSwatchRow(
+                              product: product,
+                              onSelectColor: (handle) =>
+                                  _showColor(listed, handle),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                        SizedBox(
+                          height: 12,
+                          child: ProductSizeRow(product: product),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
