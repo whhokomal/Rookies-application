@@ -946,7 +946,7 @@ class _HomeScreenState extends State<HomeScreen> {
         r.dp(6) +
         14 +
         r.dp(6) +
-        12;
+        ProductSizeRow.heightFor();
     return cardWidth / _kExploreImageAspect + textBlock + 2;
   }
 
@@ -1072,7 +1072,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: AppColors.secondaryText,
                     decoration: TextDecoration.lineThrough,
                   ),
-                ),
+                ), 
               ],
             ],
           ),
@@ -1081,7 +1081,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // move up under the price.
           SizedBox(height: r.dp(6)),
           SizedBox(
-            height: 14 + r.dp(6) + 12,
+            height: 14 + r.dp(6) + ProductSizeRow.heightFor(),
             child: product.product == null
                 ? null
                 : Column(
@@ -1098,7 +1098,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         SizedBox(height: r.dp(6)),
                       ],
                       SizedBox(
-                        height: 12,
+                        height: ProductSizeRow.heightFor(),
                         child: ProductSizeRow(product: product.product!),
                       ),
                     ],

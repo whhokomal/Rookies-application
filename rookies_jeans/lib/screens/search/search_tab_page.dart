@@ -10,6 +10,7 @@ import 'package:rookies_jeans/services/search_history_service.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
 import 'package:rookies_jeans/widgets/price_text.dart';
 import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
+import 'package:rookies_jeans/widgets/product_variant_rows.dart';
 
 /// The bottom-nav "Search" tab: a lightweight live-search landing page,
 /// separate from ProductsPage (which is collection browsing only). Typing
@@ -497,7 +498,14 @@ class _SearchTabPageState extends State<SearchTabPage> {
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 4),
-        child: _priceBlock(product),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _priceBlock(product),
+            const SizedBox(height: 6),
+            ProductVariantRows(product: product),
+          ],
+        ),
       ),
       // Not over a photo here, so the idle outline uses the text colour.
       trailing: WishlistHeartButton(product: product, idleColor: AppColors.primary),

@@ -39,27 +39,18 @@ class ProductSwatchRow extends StatelessWidget {
     if (group.length < 2) return const [];
     return [
       for (final s in group)
-        if (colorFromHandle(s.handle) case final guessed)
-          _Swatch(
-            imageUrl: s.imageUrl,
-            // Used when the group has no custom swatches, or one fails to
-            // load.
-            color: guessed ?? const Color(0xFFCCCCCC),
-            handle: s.handle,
-            // The product's own photo, as the website does for these
-            // groups; also when its handle names no color we know (often
-            // a misspelling like "gren"), rather than a blank grey.
-            usesPhoto:
-                s.imageUrl == null && (s.usesProductPhoto || guessed == null),
-            // This product's own stock and photo are known; other colors
-            // are looked up.
-            inStock: s.handle == product.handle
-                ? product.variants.any((v) => v.availableForSale)
-                : null,
-            photoUrl: s.handle == product.handle
-                ? product.primaryImageUrl
-                : null,
-          ),
+        _Swatch(
+          // Used when the group has no custom swatch, or while it loads.
+          color: colorFromHandle(s.handle) ?? const Color(0xFFCCCCCC),
+          handle: s.handle,
+          // The group's hand-picked color chip, the same one the website's
+          // cards show.
+          imageUrl: s.imageUrl,
+          // This product's own stock is known; other colors are looked up.
+          inStock: s.handle == product.handle
+              ? product.variants.any((v) => v.availableForSale)
+              : null,
+        ),
     ];
   }
 
@@ -76,10 +67,13 @@ class ProductSwatchRow extends StatelessWidget {
             if (hexToColor(v.swatchColor) case final color?)
               _Swatch(
                 color: color,
-                inStock: product.variants.any((variant) =>
-                    variant.availableForSale &&
-                    variant.selectedOptions
-                        .any((o) => o.name == opt.name && o.value == v.name)),
+                inStock: product.variants.any(
+                  (variant) =>
+                      variant.availableForSale &&
+                      variant.selectedOptions.any(
+                        (o) => o.name == opt.name && o.value == v.name,
+                      ),
+                ),
               ),
       ];
     }
@@ -90,6 +84,10 @@ class ProductSwatchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final swatches = _swatchesFor(product);
     if (swatches.isEmpty) return const SizedBox.shrink();
+    // The color the card is showing always comes first, so it is never
+    // hidden behind "+N".
+    final current = swatches.indexWhere((s) => s.handle == product.handle);
+    if (current > 0) swatches.insert(0, swatches.removeAt(current));
     final visible = swatches.take(_maxVisible).toList();
     final extra = swatches.length - visible.length;
     return Row(
@@ -98,16 +96,13 @@ class ProductSwatchRow extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 4),
             child: swatch.inStock != null || swatch.handle == null
-                ? _tile(swatch, swatch.inStock ?? true, swatch.photoUrl)
+                ? _tile(swatch, swatch.inStock ?? true)
                 : FutureBuilder<ColorSwatchInfo?>(
                     future: ShopifyStorefrontService.instance
                         .getColorSwatchInfo(swatch.handle!),
                     // Shown as in stock until known, or if it can't be checked.
-                    builder: (_, snap) => _tile(
-                      swatch,
-                      snap.data?.available ?? true,
-                      snap.data?.photoUrl,
-                    ),
+                    builder: (_, snap) =>
+                        _tile(swatch, snap.data?.available ?? true),
                   ),
           ),
         if (extra > 0)
@@ -124,13 +119,11 @@ class ProductSwatchRow extends StatelessWidget {
     );
   }
 
-  Widget _tile(_Swatch swatch, bool inStock, String? photoUrl) {
+  Widget _tile(_Swatch swatch, bool inStock) {
     final isCurrent = swatch.handle == product.handle;
-    final imageUrl = swatch.imageUrl ?? (swatch.usesPhoto ? photoUrl : null);
-    final canTap = onSelectColor != null &&
-        inStock &&
-        swatch.handle != null &&
-        !isCurrent;
+    final imageUrl = swatch.imageUrl;
+    final canTap =
+        onSelectColor != null && inStock && swatch.handle != null && !isCurrent;
     return GestureDetector(
       onTap: canTap ? () => onSelectColor!(swatch.handle!) : null,
       child: SoldOutStrike(
@@ -140,12 +133,8 @@ class ProductSwatchRow extends StatelessWidget {
           height: size,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            // A photo swatch stays light grey until its photo arrives.
-            color: imageUrl != null
-                ? null
-                : swatch.usesPhoto
-                ? AppColors.fieldFill
-                : swatch.color,
+            // An image swatch stays light grey until its image arrives.
+            color: imageUrl != null ? AppColors.fieldFill : swatch.color,
             borderRadius: BorderRadius.circular(3),
           ),
           // A thin outline on every swatch, drawn over the image too, so
@@ -154,7 +143,7 @@ class ProductSwatchRow extends StatelessWidget {
           foregroundDecoration: BoxDecoration(
             borderRadius: BorderRadius.circular(3),
             border: Border.all(
-              color: isCurrent && onSelectColor != null
+              color: isCurrent
                   ? AppColors.primary
                   : AppColors.border,
               width: 1,
@@ -178,30 +167,24 @@ class ProductSwatchRow extends StatelessWidget {
   }
 }
 
-/// One square in the row: the website's custom swatch image when there is
-/// one, else a solid [color].
+/// One square in the row: the group's custom color chip when it has one,
+/// else a solid [color].
 class _Swatch {
   const _Swatch({
     required this.color,
-    this.imageUrl,
     this.handle,
-    this.usesPhoto = false,
+    this.imageUrl,
     this.inStock,
-    this.photoUrl,
   });
 
   final Color color;
-  final String? imageUrl;
 
   /// The color's own product, for Variant King group swatches.
   final String? handle;
 
-  /// Whether to show the product's first photo instead of [color].
-  final bool usesPhoto;
+  /// The group's custom color chip image, shown instead of [color].
+  final String? imageUrl;
 
   /// Null when not known yet (another product in the color group).
   final bool? inStock;
-
-  /// The product's first photo, when already known.
-  final String? photoUrl;
 }

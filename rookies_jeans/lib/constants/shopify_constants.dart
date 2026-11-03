@@ -47,6 +47,12 @@ class ShopifyConstants {
   /// where the customer enters their order number and email/phone.
   static const String trackOrderUrl  = '$storeUrl/apps/ecotrack';
 
+  /// Theme that has GoKwik's side cart ("rookies-renaisse-theme-2/develop").
+  /// The app's cart opens it as a theme preview while it is still a draft;
+  /// set this to null once that theme is published.
+  // ignore: unnecessary_nullable_for_final_variable_declarations
+  static const String? gokwikCartThemeId = '188046639399';
+
   static const String fontHeading    = 'Anton';
   static const String fontSubheading = 'BebasNeue';
   static const String fontBody       = 'Archivo';

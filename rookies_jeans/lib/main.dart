@@ -10,6 +10,7 @@ import 'package:rookies_jeans/screens/collections/collections.dart';
 import 'package:rookies_jeans/screens/orders/orders.dart';
 import 'package:rookies_jeans/screens/products/wishlist_page.dart';
 import 'package:rookies_jeans/screens/cart/cart.dart';
+import 'package:rookies_jeans/screens/cart/checkout_flow.dart';
 import 'package:rookies_jeans/screens/profile/address_book.dart';
 import 'package:rookies_jeans/screens/profile/change_password_screen.dart';
 import 'package:rookies_jeans/screens/profile/edit_profile_screen.dart';
@@ -67,6 +68,9 @@ final List<GlobalKey<NavigatorState>> _branchNavigatorKeys = List.generate(
 
 /// Index of the Home branch in the StatefulShellRoute below.
 const int _homeBranchIndex = 2;
+
+/// Index of the Cart branch; tapping it opens GoKwik's side cart instead.
+const int _cartBranchIndex = 4;
 
 /// A top-level (full-screen, outside the bottom nav) route whose system back
 /// falls back to the Home tab when there's nothing underneath it — e.g. it
@@ -191,8 +195,11 @@ final GoRouter _appRouter = GoRouter(
 /// Opens the page a tapped notification points to. Tabs are switched to;
 /// other pages open on top of the current one so back returns there.
 void _openNotificationLink(String link) {
-  const tabs = {'/category', '/search', '/home', '/profile', '/cart'};
-  if (tabs.contains(link)) {
+  const tabs = {'/category', '/search', '/home', '/profile'};
+  final rootContext = _rootNavigatorKey.currentContext;
+  if (link == '/cart' && rootContext != null) {
+    openGokwikCart(rootContext);
+  } else if (tabs.contains(link)) {
     _appRouter.go(link);
   } else {
     _appRouter.push(link);
@@ -214,18 +221,23 @@ class ScaffoldWithNavBar extends StatelessWidget {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) navigationShell.goBranch(_homeBranchIndex);
       },
-      child: _buildScaffold(),
+      child: _buildScaffold(context),
     );
   }
 
   /// Always lands on the tapped tab's root page: pops anything pushed on
   /// top of it (product pages etc.) and resets it to its initial location.
-  void _onTabTapped(int index) {
+  void _onTabTapped(BuildContext context, int index) {
+    // The cart is GoKwik's side cart, opened over the current tab.
+    if (index == _cartBranchIndex) {
+      openGokwikCart(context);
+      return;
+    }
     _branchNavigatorKeys[index].currentState?.popUntil((r) => r.isFirst);
     navigationShell.goBranch(index, initialLocation: true);
   }
 
-  Widget _buildScaffold() {
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       extendBody: true,
       // This Scaffold's background is what shows through any gap behind
@@ -239,7 +251,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
       body: navigationShell,
       bottomNavigationBar: RookiesBottomNavBar(
         currentIndex: navigationShell.currentIndex,
-        onTap: _onTabTapped,
+        onTap: (index) => _onTabTapped(context, index),
       ),
     );
   }

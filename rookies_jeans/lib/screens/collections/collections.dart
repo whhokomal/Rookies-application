@@ -18,6 +18,7 @@ import 'package:rookies_jeans/widgets/banner_page_dots.dart';
 import 'package:rookies_jeans/widgets/price_text.dart';
 import 'package:rookies_jeans/widgets/sticker_chip.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:rookies_jeans/widgets/product_variant_rows.dart';
 
 /// Backdrop for product cutouts, which are shot on a light grey. Fixed in
 /// both themes so the photos never sit on a mismatched box.
@@ -1199,6 +1200,8 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
                     color: AppColors.primary,
                     amountFontFamily: AppFonts.body,
                   ),
+                  const SizedBox(height: 6),
+                  ProductVariantRows(product: product),
                 ],
               ),
             ),

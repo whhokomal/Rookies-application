@@ -18,9 +18,9 @@ import 'package:rookies_jeans/services/wishlist_service.dart';
 import 'package:rookies_jeans/services/recently_viewed_service.dart';
 import 'package:rookies_jeans/services/reviews_service.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
-import 'package:rookies_jeans/screens/cart/cart.dart';
 import 'package:rookies_jeans/screens/cart/checkout_flow.dart';
 import 'package:rookies_jeans/utils/color_names.dart';
+import 'package:rookies_jeans/widgets/delivery_date_checker.dart';
 import 'package:rookies_jeans/widgets/price_text.dart';
 import 'package:rookies_jeans/widgets/product_reviews_section.dart';
 import 'package:rookies_jeans/widgets/product_row_section.dart';
@@ -118,7 +118,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   List<ShopifyProduct> _goesWellWith = [];
   List<ShopifyProduct> _youMayAlsoLike = [];
   List<ShopifyProduct> _colorSiblings = [];
-  int? _expandedTileIndex;
+
+  /// Which info tab is open: 0 Shipping & Returns, 1 Product Description.
+  int _infoTab = 0;
 
   /// Judge.me reviews for the shown product; null until loaded.
   ProductReviews? _reviews;
@@ -486,10 +488,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
-  void _goToCart() => Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const CartScreen()),
-  );
+  void _goToCart() => openGokwikCart(context);
 
   Future<void> _handleAddToCart() async {
     if (_needsSize) {
@@ -597,7 +596,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       _selectedOptions = {};
       _selectedVariant = null;
       _showSizeError = false;
-      _expandedTileIndex = null;
+      _infoTab = 0;
     });
 
     if (_pageController.hasClients) {
@@ -1053,31 +1052,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               .map((opt) => _optionSelector(opt)),
           _variantMetafieldsSection(),
           const SizedBox(height: 20),
+          const DeliveryDateChecker(),
+          const SizedBox(height: 20),
           _availabilityChip(),
           const SizedBox(height: 20),
           _addToCartButton(),
+          const SizedBox(height: 16),
+          _trustSignals(),
           const SizedBox(height: 24),
-          // const Divider(height: 1),
-          if (p.description.isNotEmpty) ...[
-            _descriptionTile(p.description, 0),
-            const Divider(height: 1),
-          ],
-          _infoTile(
-            'Shipping & Returns',
-            (p.shippingInfo?.isNotEmpty ?? false)
-                ? p.shippingInfo!
-                : 'Free shipping on prepaid orders. Easy returns within 7 days.',
-            1,
-          ),
-          const Divider(height: 1),
-          _infoTile(
-            'Care Instructions',
-            (p.careInstructions?.isNotEmpty ?? false)
-                ? p.careInstructions!
-                : 'Machine wash cold. Do not bleach. Tumble dry low.',
-            2,
-          ),
-          // const Divider(height: 1),
+          _infoTabs(p),
           const SizedBox(height: 16),
         ],
       ),
@@ -1105,7 +1088,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     return text.trim();
   }
 
-  Widget _descriptionTile(String raw, int index) {
+  Widget _descriptionContent(String raw) {
     final cleaned = _preprocessDescription(raw);
     final lines = cleaned
         .split('\n')
@@ -1179,78 +1162,123 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       }
     }
 
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        key: ValueKey('tile-$index-${_expandedTileIndex == index}'),
-        initiallyExpanded: _expandedTileIndex == index,
-        onExpansionChanged: (expanded) {
-          setState(() => _expandedTileIndex = expanded ? index : null);
-        },
-        tilePadding: EdgeInsets.zero,
-        iconColor: AppColors.primary,
-        collapsedIconColor: AppColors.secondaryText,
-        title: Text(
-          'Description',
-          style: TextStyle(
-            fontFamily: AppFonts.accent,
-            fontSize: _s(14),
-            color: AppColors.primary,
-          ),
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: children,
-            ),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
     );
   }
 
-  Widget _infoTile(String label, String content, int index) {
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        key: ValueKey('tile-$index-${_expandedTileIndex == index}'),
-        initiallyExpanded: _expandedTileIndex == index,
-        onExpansionChanged: (expanded) {
-          setState(() => _expandedTileIndex = expanded ? index : null);
-        },
-        tilePadding: EdgeInsets.zero,
-        iconColor: AppColors.primary,
-        collapsedIconColor: AppColors.secondaryText,
-        title: Text(
-          label,
-          style: TextStyle(
-            fontFamily: AppFonts.accent,
-            fontSize: _s(14),
-            color: AppColors.primary,
-          ),
-        ),
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Text(
-                content,
-                style: TextStyle(
-                  fontFamily: AppFonts.body,
-                  fontSize: _s(13),
-                  color: AppColors.secondaryText,
-                  height: 1.6,
+  /// "Shipping & Returns" and "Product Description" as two tabs, like the
+  /// website, with the chosen one's text always shown below.
+  Widget _infoTabs(ShopifyProductDetail p) {
+    final tabs = <(String, Widget)>[
+      ('SHIPPING & RETURNS', _shippingContent(p)),
+      if (p.description.isNotEmpty || (p.careInstructions?.isNotEmpty ?? false))
+        ('PRODUCT DESCRIPTION', _productDescriptionContent(p)),
+    ];
+    final selected = _infoTab.clamp(0, tabs.length - 1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 24,
+          runSpacing: 8,
+          children: [
+            for (var i = 0; i < tabs.length; i++)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _infoTab = i),
+                child: Container(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: i == selected
+                            ? AppColors.primary
+                            : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  child: Text(
+                    tabs[i].$1,
+                    style: TextStyle(
+                      fontFamily: AppFonts.accent,
+                      fontSize: _s(13),
+                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w700,
+                      color: i == selected
+                          ? AppColors.primary
+                          : AppColors.secondaryText,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        tabs[selected].$2,
+      ],
     );
   }
+
+  /// The product's own shipping text one point per line, or the store's
+  /// standard policy.
+  Widget _shippingContent(ShopifyProductDetail p) {
+    final custom = p.shippingInfo?.trim() ?? '';
+    final points = custom.isNotEmpty
+        ? custom
+              .split(RegExp(r'\n|(?<=\.)\s+'))
+              .map((l) => l.trim().replaceFirst(RegExp(r'^[•\-]\s*'), ''))
+              .where((l) => l.isNotEmpty)
+              .toList()
+        : const [
+            'Orders are processed on the same day.',
+            'Free shipping on prepaid orders.',
+            'Returns accepted within 7 days of delivery for unworn items in '
+                'original condition.',
+          ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [for (final point in points) _bulletPoint(point)],
+    );
+  }
+
+  /// The description, plus care instructions when the product has them.
+  Widget _productDescriptionContent(ShopifyProductDetail p) {
+    final care = p.careInstructions?.trim() ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (p.description.isNotEmpty) _descriptionContent(p.description),
+        if (care.isNotEmpty) _bulletPoint('Care: $care'),
+      ],
+    );
+  }
+
+  Widget _bulletPoint(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 7, right: 8),
+          child: Icon(Icons.circle, size: 5, color: AppColors.primary),
+        ),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontFamily: AppFonts.body,
+              fontSize: _s(13),
+              color: AppColors.primary,
+              height: 1.5,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 
   /// Every product the customer has opened (saved across app restarts)
   /// except this one, newest first.
@@ -1663,6 +1691,71 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           ],
         );
       },
+    );
+  }
+
+  /// Free delivery / returns / COD badges shown under Buy Now.
+  Widget _trustSignals() {
+    Widget item(IconData icon, String title, String subtitle) => Expanded(
+      child: Column(
+        children: [
+          Container(
+            width: _s(44),
+            height: _s(44),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.border,
+            ),
+            child: Icon(icon, size: _s(20), color: AppColors.primary),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppFonts.body,
+              fontSize: _s(12.5),
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppFonts.body,
+              fontSize: _s(10.5),
+              color: AppColors.secondaryText,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          item(
+            Icons.local_shipping_outlined,
+            'Free Delivery',
+            'On prepaid orders',
+          ),
+          item(Icons.replay_rounded, '7 Days Returns', 'Easy returns policy'),
+          item(
+            Icons.inventory_2_outlined,
+            'Cash on Delivery',
+            'Available nationwide',
+          ),
+        ],
+      ),
     );
   }
 

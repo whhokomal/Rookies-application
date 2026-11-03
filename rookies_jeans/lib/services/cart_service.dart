@@ -164,7 +164,12 @@ class CartService extends ChangeNotifier {
   }
 
   /// Creates a cart holding one line. Returns the new cart id, or null.
-  Future<String?> _createCart({required String variantId, required int quantity}) async {
+  Future<String?> _createCart({required String variantId, required int quantity}) =>
+      _createCartWithLines({variantId: quantity});
+
+  /// Creates a cart holding [lines] (variant id → quantity). Returns the new
+  /// cart id, or null.
+  Future<String?> _createCartWithLines(Map<String, int> lines) async {
     const mutation = r'''
       mutation cartCreate($input: CartInput) {
         cartCreate(input: $input) {
@@ -177,7 +182,8 @@ class CartService extends ChangeNotifier {
     final decoded = await _post(mutation, {
       'input': {
         'lines': [
-          {'merchandiseId': variantId, 'quantity': quantity}
+          for (final e in lines.entries)
+            {'merchandiseId': e.key, 'quantity': e.value}
         ],
       },
     });
@@ -343,6 +349,39 @@ class CartService extends ChangeNotifier {
       } catch (e) {
         _log('removeLine EXCEPTION: $e');
         return false;
+      }
+    });
+  }
+
+  /// Makes the app cart match the website cart after it was edited in
+  /// GoKwik's side cart. [lines] maps numeric variant id → quantity, as in
+  /// the storefront's `/cart.js`. Nothing is sent when they already match.
+  Future<void> syncFromWeb(Map<int, int> lines) {
+    return _run(() async {
+      final current = <int, int>{};
+      for (final line in _cart.lines) {
+        final id = int.tryParse(line.variantId.split('/').last.split('?').first);
+        if (id != null) current[id] = (current[id] ?? 0) + line.quantity;
+      }
+      if (mapEquals(current, lines)) return;
+
+      if (lines.isEmpty) {
+        await _clearPersistedCartId();
+        _cart = ShopifyCart.empty;
+        _reportCart();
+        return;
+      }
+      try {
+        final newCartId = await _createCartWithLines({
+          for (final e in lines.entries)
+            'gid://shopify/ProductVariant/${e.key}': e.value,
+        });
+        if (newCartId == null) return;
+        await _persistCartId(newCartId);
+        await _refresh();
+        _reportCart();
+      } catch (e) {
+        _log('syncFromWeb EXCEPTION: $e');
       }
     });
   }

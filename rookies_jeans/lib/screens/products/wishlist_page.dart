@@ -7,6 +7,7 @@ import 'package:rookies_jeans/screens/collections/collections.dart';
 import 'package:rookies_jeans/screens/products/product_detail_page.dart';
 import 'package:rookies_jeans/services/wishlist_service.dart';
 import 'package:rookies_jeans/widgets/price_text.dart';
+import 'package:rookies_jeans/widgets/product_variant_rows.dart';
 
 class WishlistPage extends StatefulWidget {
   const WishlistPage({super.key});
@@ -310,6 +311,8 @@ class _WishlistPageState extends State<WishlistPage> {
                   ),
                   const SizedBox(height: 6),
                   _priceBlock(product),
+                  const SizedBox(height: 6),
+                  ProductVariantRows(product: product),
                 ],
               ),
             ),

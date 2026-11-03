@@ -1516,7 +1516,7 @@ class _ProductsPageState extends State<ProductsPage> {
                   // without swatches the sizes move up under the price.
                   const SizedBox(height: 6),
                   SizedBox(
-                    height: 14 + 6 + 12,
+                    height: 14 + 6 + ProductSizeRow.heightFor(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1532,7 +1532,7 @@ class _ProductsPageState extends State<ProductsPage> {
                           const SizedBox(height: 6),
                         ],
                         SizedBox(
-                          height: 12,
+                          height: ProductSizeRow.heightFor(),
                           child: ProductSizeRow(product: product),
                         ),
                       ],

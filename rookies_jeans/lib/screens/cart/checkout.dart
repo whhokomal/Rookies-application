@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/models/cart_model.dart';
+import 'package:rookies_jeans/services/cart_service.dart';
+import 'package:rookies_jeans/services/notification_service.dart';
 
 /// GoKwik checkout screen.
 ///
@@ -16,11 +19,22 @@ import 'package:rookies_jeans/models/cart_model.dart';
 /// cart into the web cart and launch GoKwik the same way the website's
 /// Checkout button does. There is deliberately no fallback to Shopify's
 /// native checkout: if GoKwik can't be started, we show an error with Retry.
+///
+/// With [openCart] it opens GoKwik's side cart instead (the website's cart
+/// drawer), whose own Checkout button then starts GoKwik checkout. Edits
+/// made there are copied back into the app cart when the cart is closed.
 class CheckoutWebView extends StatefulWidget {
-  const CheckoutWebView({super.key, required this.lines});
+  const CheckoutWebView({
+    super.key,
+    required this.lines,
+    this.openCart = false,
+  });
 
   /// Cart lines to check out.
   final List<ShopifyCartLine> lines;
+
+  /// Show GoKwik's side cart rather than going straight to checkout.
+  final bool openCart;
 
   @override
   State<CheckoutWebView> createState() => _CheckoutWebViewState();
@@ -52,6 +66,13 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
   /// followed by a redirect (e.g. to the thank-you page) doesn't close us.
   int _navigationCount = 0;
 
+  /// Cart mode: true while the side cart is showing (not GoKwik checkout).
+  bool _cartOpen = false;
+  bool _closingCart = false;
+
+  /// Cart mode: product opened from the side cart, shown once it's closed.
+  String? _openProductAfterClose;
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +83,9 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
         NavigationDelegate(
           onPageStarted: (url) {
             _navigationCount++;
+            // A redirect (e.g. Shopify's theme preview link) throws away a
+            // script injected into the previous page, so inject it again.
+            if (_launchingGokwik) _gokwikInjected = false;
             if (mounted) setState(() => _isLoading = true);
             _checkForOrderCompletion(url);
           },
@@ -105,7 +129,8 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
   }
 
   void _startGokwik() {
-    if (_gokwikItems().isEmpty) {
+    // An empty cart can still be opened; GoKwik shows its empty state.
+    if (_gokwikItems().isEmpty && !widget.openCart) {
       _fail('no valid cart lines');
       return;
     }
@@ -115,7 +140,20 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
       _gokwikInjected  = false;
     });
     _armTimer(_pageLoadTimeout, 'page load timeout');
-    _controller.loadRequest(Uri.parse('${ShopifyConstants.storeUrl}/cart'));
+    _controller.loadRequest(_startUrl());
+  }
+
+  /// The side cart lives on the home page of the GoKwik cart theme, opened
+  /// as a preview (without Shopify's preview bar) until it is published.
+  Uri _startUrl() {
+    if (!widget.openCart) {
+      return Uri.parse('${ShopifyConstants.storeUrl}/cart');
+    }
+    final themeId = ShopifyConstants.gokwikCartThemeId;
+    return Uri.parse('${ShopifyConstants.storeUrl}/').replace(
+      queryParameters:
+          themeId == null ? null : {'preview_theme_id': themeId, 'pb': '0'},
+    );
   }
 
   void _armTimer(Duration timeout, String reason) {
@@ -133,23 +171,77 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
     _gokwikInjected = true;
     _armTimer(_stepTimeout, 'GoKwik script timeout');
     final items = jsonEncode(_gokwikItems());
+    final openCart = widget.openCart;
     _controller.runJavaScript('''
 (function () {
+  // Android can report the same page finished more than once.
+  if (window.__rookiesGokwikInjected) return;
+  window.__rookiesGokwikInjected = true;
   function post(m) { try { $_bridgeName.postMessage(m); } catch (e) {} }
   var items = $items;
+  var openCart = $openCart;
   var tries = 0;
+  function gokwikReady() {
+    if (typeof window.triggerGokwikCustomCheckout !== 'function' || !window.gokwikSdk) return false;
+    return !openCart || typeof window.openGokwikSideCart === 'function';
+  }
   function waitForGokwik() {
-    if (typeof window.triggerGokwikCustomCheckout === 'function' && window.gokwikSdk) {
+    if (gokwikReady()) {
       start();
       return;
     }
     if (++tries > 100) { post('failed:gokwik-not-loaded'); return; }
     setTimeout(waitForGokwik, 250);
   }
+  // Sends the website cart back as "cart:[{id, quantity}]" so the app cart
+  // can be updated to match.
+  function postCart() {
+    fetch('/cart.js', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (c) {
+        post('cart:' + JSON.stringify(c.items.map(function (i) {
+          return { id: i.variant_id, quantity: i.quantity };
+        })));
+      })
+      .catch(function () { post('cart:null'); });
+  }
+  function openSideCart() {
+    // The website's chat bubble would sit over the side cart's Checkout
+    // button.
+    var style = document.createElement('style');
+    style.textContent = '#spur-live-chat { display: none !important; }';
+    document.head.appendChild(style);
+    var checkingOut = false;
+    // The side cart's Checkout button calls initCheckout and then closes
+    // the side cart; only a close without it means the customer left.
+    var initCheckout = window.gokwikSdk.initCheckout;
+    window.gokwikSdk.initCheckout = function () {
+      checkingOut = true;
+      post('checkout');
+      return initCheckout.apply(this, arguments);
+    };
+    var closeSideCart = window.closeGokwikSideCart;
+    window.closeGokwikSideCart = function () {
+      var result = closeSideCart.apply(this, arguments);
+      if (!checkingOut) postCart();
+      return result;
+    };
+    window.__rookiesReopenCart = function () {
+      checkingOut = false;
+      window.openGokwikSideCart();
+    };
+    window.__rookiesCloseCart = function () {
+      if (checkingOut) return;
+      window.closeGokwikSideCart();
+    };
+    window.gokwikSdk.on('modal_closed', function () { post('closed'); });
+    return Promise.resolve(window.openGokwikSideCart());
+  }
   function start() {
     post('step:gokwik-ready');
     fetch('/cart/clear.js', { method: 'POST', credentials: 'same-origin' })
       .then(function () {
+        if (!items.length) return { ok: true };
         return fetch('/cart/add.js', {
           method: 'POST',
           credentials: 'same-origin',
@@ -171,6 +263,9 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
       .then(function (r) { if (!r.ok) throw new Error('cart update ' + r.status); })
       .then(function () {
         post('step:cart-ready');
+        if (openCart) {
+          return openSideCart().then(function () { post('cart-opened'); });
+        }
         window.gokwikSdk.on('modal_closed', function () { post('closed'); });
         window.triggerGokwikCustomCheckout();
         post('opened');
@@ -186,16 +281,23 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
     final msg = message.message;
     if (!mounted) return;
 
-    if (msg == 'opened') {
+    if (msg == 'opened' || msg == 'cart-opened') {
       // Also clears an earlier timeout error if GoKwik opened late.
       _gokwikTimer?.cancel();
       setState(() {
         _launchingGokwik = false;
         _error = null;
+        _cartOpen = msg == 'cart-opened';
       });
     } else if (msg.startsWith('step:')) {
       debugPrint('CheckoutWebView: $msg');
       if (_launchingGokwik) _armTimer(_stepTimeout, 'timeout after $msg');
+    } else if (msg == 'checkout') {
+      // Checkout started from the side cart.
+      _cartOpen = false;
+      NotificationService.instance.track('checkout_started');
+    } else if (msg.startsWith('cart:')) {
+      _onSideCartClosed(msg.substring('cart:'.length));
     } else if (msg == 'closed') {
       // Closing the GoKwik sheet without paying returns to the cart. Wait a
       // moment first: after a successful order GoKwik closes the sheet and
@@ -204,11 +306,60 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
       Future.delayed(const Duration(milliseconds: 800), () {
         if (!mounted || _orderCompleted) return;
         if (_navigationCount != navBefore) return;
-        Navigator.of(context).pop(false);
+        if (widget.openCart) {
+          _cartOpen = true;
+          _controller.runJavaScript('window.__rookiesReopenCart();');
+        } else {
+          Navigator.of(context).pop(false);
+        }
       });
     } else if (msg.startsWith('failed')) {
       _fail(msg);
     }
+  }
+
+  /// The side cart was closed: copy its contents ([cartJson], from
+  /// `/cart.js`, or "null" if it couldn't be read) into the app cart and
+  /// leave, opening a product if one was tapped in the side cart.
+  void _onSideCartClosed(String cartJson) {
+    if (_orderCompleted) return;
+    try {
+      final items = jsonDecode(cartJson);
+      if (items is List) {
+        final lines = <int, int>{};
+        for (final item in items.cast<Map<String, dynamic>>()) {
+          final id = item['id'] as int;
+          lines[id] = (lines[id] ?? 0) + (item['quantity'] as int);
+        }
+        CartService.instance.syncFromWeb(lines);
+      }
+    } catch (e) {
+      debugPrint('CheckoutWebView: could not read web cart ($e)');
+    }
+    _leaveCart();
+  }
+
+  void _leaveCart() {
+    if (!mounted || !_cartOpen) return;
+    _cartOpen = false;
+    final router = GoRouter.of(context);
+    final product = _openProductAfterClose;
+    Navigator.of(context).pop(false);
+    if (product != null) router.push('/products/$product');
+  }
+
+  /// Back button / app bar close in cart mode: closes the side cart the
+  /// same way its X does, so edits are synced; leaves anyway if the page
+  /// doesn't answer.
+  void _closeCart() {
+    if (!widget.openCart || !_cartOpen) {
+      Navigator.of(context).pop(false);
+      return;
+    }
+    if (_closingCart) return;
+    _closingCart = true;
+    _controller.runJavaScript('window.__rookiesCloseCart();');
+    Future.delayed(const Duration(seconds: 3), _leaveCart);
   }
 
   void _fail(String reason) {
@@ -314,6 +465,19 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
         scheme == 'blob' ||
         scheme == 'javascript';
 
+    // A product tapped in the side cart opens the app's product page
+    // rather than the website's.
+    final productMatch = RegExp(r'^/products/([^/?#]+)').firstMatch(uri.path);
+    if (widget.openCart &&
+        _cartOpen &&
+        request.isMainFrame &&
+        _isStoreHost(uri.host) &&
+        productMatch != null) {
+      _openProductAfterClose = productMatch.group(1);
+      _closeCart();
+      return NavigationDecision.prevent;
+    }
+
     if (isWebScheme || isInternalScheme) return NavigationDecision.navigate;
 
     final launched = await _launchExternal(uri, request.url);
@@ -337,6 +501,7 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.openCart) return _cartScaffold();
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -370,24 +535,55 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (_error != null)
-            Positioned.fill(child: _errorView(_error!))
-          else if (_isLoading || _launchingGokwik)
-            Positioned.fill(
-              child: ColoredBox(
-                color: AppColors.bg,
-                child: Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                ),
-              ),
-            ),
-        ],
-      ),
+      body: _webViewBody(),
     );
   }
+
+  /// Cart mode has no app bar: the side cart brings its own header and X.
+  /// Back closes the side cart so its edits reach the app cart.
+  Widget _cartScaffold() => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) _closeCart();
+    },
+    child: Scaffold(
+      backgroundColor: AppColors.bg,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            _webViewBody(),
+            // Way out while the cart is loading or failed to open.
+            if (_error != null || _launchingGokwik)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IconButton(
+                  icon: Icon(Icons.close_rounded, color: AppColors.primary),
+                  onPressed: () => Navigator.of(context).pop(false),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _webViewBody() => Stack(
+    children: [
+      WebViewWidget(controller: _controller),
+      if (_error != null)
+        Positioned.fill(child: _errorView(_error!))
+      else if (_isLoading || _launchingGokwik)
+        Positioned.fill(
+          child: ColoredBox(
+            color: AppColors.bg,
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          ),
+        ),
+    ],
+  );
 
   Widget _errorView(String message) => ColoredBox(
         color: AppColors.bg,

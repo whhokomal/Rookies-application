@@ -4,6 +4,7 @@ import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/models/product_model.dart';
 import 'package:rookies_jeans/screens/products/product_detail_page.dart';
 import 'package:rookies_jeans/widgets/price_text.dart';
+import 'package:rookies_jeans/widgets/product_variant_rows.dart';
 import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
 
 /// Tilted heading + horizontally scrolling product cards ("Goes Well With",
@@ -26,7 +27,12 @@ class ProductRowSection extends StatelessWidget {
     final cardWidth = s(125).clamp(110.0, 165.0);
     // Product photos are 2:3 portrait; match it so nothing gets cropped.
     final imgHeight = cardWidth * 1.5;
-    final listHeight = imgHeight + s(56).clamp(50.0, 74.0);
+    // Title, price, then the swatch and size rows.
+    final listHeight =
+        imgHeight +
+        s(56).clamp(50.0, 74.0) +
+        6 +
+        ProductVariantRows.heightFor();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 0, 0),
       child: Column(
@@ -102,7 +108,8 @@ class ProductRowSection extends StatelessWidget {
                             imageUrl: product.primaryImageUrl!,
                             fit: BoxFit.cover,
                             alignment: Alignment.topCenter,
-                            placeholder: (_, _) => Container(color: AppColors.fieldFill),
+                            placeholder: (_, _) =>
+                                Container(color: AppColors.fieldFill),
                             errorWidget: (_, _, _) =>
                                 Container(color: AppColors.fieldFill),
                           )
@@ -134,6 +141,8 @@ class ProductRowSection extends StatelessWidget {
             ),
             const SizedBox(height: 3),
             _priceText(s, product),
+            const SizedBox(height: 6),
+            ProductVariantRows(product: product),
           ],
         ),
       ),

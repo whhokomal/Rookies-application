@@ -61,17 +61,44 @@ class ProductPeekDialogState extends State<ProductPeekDialog> {
 
   final Map<String, String> _selectedOptions = {};
 
+  /// Set when Add to Cart is tapped before a size is picked.
+  bool _showSizeError = false;
+
+  /// A Size option with more than one choice, which the shopper must pick:
+  /// sizes are never preselected, like the website.
+  bool _isSizeChoice(String optionName) {
+    if (!optionName.toLowerCase().contains('size')) return false;
+    final opt = widget.product.options.where((o) => o.name == optionName);
+    return opt.isNotEmpty && opt.first.values.length > 1;
+  }
+
+  bool get _needsSize => widget.product.options.any(
+        (o) => _isSizeChoice(o.name) && !_selectedOptions.containsKey(o.name),
+      );
+
   @override
   void initState() {
     super.initState();
     _pageCtrl = PageController();
 
+    // Other options start on the first variant's values.
     final product = widget.product;
     if (product.variants.isNotEmpty) {
-      final first = product.variants.first;
-      _selectedVariantId = first.id;
-      for (final so in first.selectedOptions) {
-        _selectedOptions[so.name] = so.value;
+      for (final so in product.variants.first.selectedOptions) {
+        if (!_isSizeChoice(so.name)) _selectedOptions[so.name] = so.value;
+      }
+    }
+    _updateSelectedVariant();
+  }
+
+  /// The variant matching every chosen option, or null while a choice is
+  /// missing.
+  void _updateSelectedVariant() {
+    _selectedVariantId = null;
+    for (final v in widget.product.variants) {
+      if (v.selectedOptions.every((so) => _selectedOptions[so.name] == so.value)) {
+        _selectedVariantId = v.id;
+        break;
       }
     }
   }
@@ -85,18 +112,9 @@ class ProductPeekDialogState extends State<ProductPeekDialog> {
   void _selectOption(String optionName, String value) {
     setState(() {
       _selectedOptions[optionName] = value;
+      if (!_needsSize) _showSizeError = false;
+      _updateSelectedVariant();
     });
-    for (final v in widget.product.variants) {
-      final match = v.selectedOptions.every(
-        (so) =>
-            _selectedOptions[so.name] == null ||
-            _selectedOptions[so.name] == so.value,
-      );
-      if (match) {
-        setState(() => _selectedVariantId = v.id);
-        break;
-      }
-    }
   }
 
   List<InlineSpan> _amountSpans({
@@ -352,9 +370,15 @@ class ProductPeekDialogState extends State<ProductPeekDialog> {
                                 height: 42,
                                 child: ElevatedButton(
                                   onPressed: _isAddingToCart ||
-                                          _selectedVariantId == null
+                                          (_selectedVariantId == null &&
+                                              !_needsSize)
                                       ? null
                                       : () async {
+                                          if (_needsSize) {
+                                            setState(
+                                                () => _showSizeError = true);
+                                            return;
+                                          }
                                           setState(
                                               () => _isAddingToCart = true);
                                           await widget.onAddToCart(
@@ -480,13 +504,30 @@ class ProductPeekDialogState extends State<ProductPeekDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          opt.label.toUpperCase(),
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: widget.secondaryTxt,
-          ),
+        Row(
+          children: [
+            Text(
+              opt.label.toUpperCase(),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: widget.secondaryTxt,
+              ),
+            ),
+            if (_showSizeError &&
+                _isSizeChoice(opt.label) &&
+                !_selectedOptions.containsKey(opt.label)) ...[
+              const SizedBox(width: 8),
+              const Text(
+                'Please select a size',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.danger,
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 6),
         Wrap(

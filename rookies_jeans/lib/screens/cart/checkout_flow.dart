@@ -5,6 +5,7 @@ import 'package:rookies_jeans/screens/authentication/login_screen.dart';
 import 'package:rookies_jeans/screens/cart/checkout.dart';
 import 'package:rookies_jeans/screens/profile/address_book.dart';
 import 'package:rookies_jeans/services/address_service.dart';
+import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/services/notification_service.dart';
 import 'package:rookies_jeans/services/shopify_auth_service.dart';
 
@@ -62,4 +63,34 @@ Future<bool> runCheckoutFlow(
   );
   if (result == true) NotificationService.instance.track('checkout_completed');
   return result == true;
+}
+
+bool _cartOpen = false;
+
+/// Opens GoKwik's side cart (the website's cart) with the app cart's
+/// contents. Checkout starts from there, through GoKwik's own sign-in and
+/// address steps like on the website. Edits made in it are copied back into
+/// the app cart when it closes; a placed order empties the app cart.
+Future<void> openGokwikCart(BuildContext context) async {
+  if (_cartOpen) return;
+  _cartOpen = true;
+  try {
+    final placed = await Navigator.of(context, rootNavigator: true).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => CheckoutWebView(
+          lines: CartService.instance.cart.lines,
+          openCart: true,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+    if (placed == true) {
+      NotificationService.instance.track('checkout_completed');
+      // GoKwik places the order from the website's cart, so the app's
+      // Storefront cart is never converted; start a fresh one.
+      await CartService.instance.reset();
+    }
+  } finally {
+    _cartOpen = false;
+  }
 }
