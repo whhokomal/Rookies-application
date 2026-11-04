@@ -9,7 +9,8 @@ class BannerPageDots extends StatelessWidget {
   final int count;
   final int index;
 
-  /// Where both banners place the dots: bottom-right, lifted off the edge.
+  /// Where banners place the dots, lifted off the edge: bottom-right on
+  /// Collections, bottom-center on the home hero (which uses only [bottom]).
   static const double right = 16;
   static const double bottom = 28;
 

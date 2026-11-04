@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +23,7 @@ import 'package:rookies_jeans/widgets/rating_badge.dart';
 import 'package:rookies_jeans/widgets/product_swatch_row.dart';
 import 'package:rookies_jeans/widgets/product_size_row.dart';
 import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
+import 'package:rookies_jeans/widgets/banner_grain.dart';
 import 'package:rookies_jeans/widgets/banner_page_dots.dart';
 import 'package:rookies_jeans/widgets/sticker_chip.dart';
 
@@ -680,8 +682,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _heroBannerImage() {
-    // Top/bottom scrims. The pager paints them beneath its page dots so the
-    // dots stay at full brightness.
+    // Top/bottom scrims. The pager paints them beneath its text and page dots
+    // so those stay at full brightness.
     final scrims = <Widget>[
       Positioned.fill(
         child: IgnorePointer(
@@ -725,6 +727,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return _HeroBannerPager(
         imageUrls: [for (final b in banners) b.imageUrl!],
         banners: banners,
+        screenHeight: _fullScreenBannerHeight(context),
+        scrollController: _scrollController,
         overlays: scrims,
         onTap: (i) {
           final link = banners[i].link;
@@ -741,6 +745,7 @@ class _HomeScreenState extends State<HomeScreen> {
           errorBuilder: (_, _, _) =>
               const ColoredBox(color: Colors.black),
         ),
+        const BannerGrain(),
         ...scrims,
       ],
     );
@@ -1534,24 +1539,34 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 /// Hero banner showing every uploaded image. Slides to the next one every
-/// [interval] (looping endlessly) and can be swiped; a small horizontal page
-/// indicator ([BannerPageDots]) sits bottom-right of the image (hidden when there's
-/// only one image).
+/// [interval] (looping endlessly) and can be swiped. Centered at the bottom,
+/// top to bottom: the banner's text, its button, and a small horizontal page
+/// indicator ([BannerPageDots], hidden when there's only one image).
 class _HeroBannerPager extends StatefulWidget {
   final List<String> imageUrls;
   final Duration interval;
 
-  /// Supplies each page's button (label and colors), same order as
+  /// Supplies each page's text and button (label and colors), same order as
   /// [imageUrls]; a banner without a button label gets no button.
   final List<HomeBanner> banners;
 
-  /// Painted over the images but beneath the page dots.
+  /// Painted over the images but beneath the text, button and page dots.
   final List<Widget> overlays;
 
   /// Called with the index (into [imageUrls]) of the banner that was tapped.
   final ValueChanged<int>? onTap;
+
+  /// The home page's vertical scroll, which moves the photo behind the
+  /// text and button.
+  final ScrollController scrollController;
+
+  /// The banner's height.
+  final double screenHeight;
+
   const _HeroBannerPager({
     required this.imageUrls,
+    required this.scrollController,
+    required this.screenHeight,
     this.banners = const [],
     this.overlays = const [],
     this.onTap,
@@ -1564,6 +1579,10 @@ class _HeroBannerPager extends StatefulWidget {
 class _HeroBannerPagerState extends State<_HeroBannerPager> {
   // Start far into an unbounded PageView so it can loop in both directions.
   static const int _loopStart = 10000;
+
+  // How much faster the photo moves than the banner and its button: at 0.15
+  // the photo travels 115 px for every 100 scrolled.
+  static const double _extraPhotoSpeed = 0.15;
 
   final PageController _controller = PageController(initialPage: _loopStart);
   Timer? _timer;
@@ -1607,83 +1626,204 @@ class _HeroBannerPagerState extends State<_HeroBannerPager> {
     super.dispose();
   }
 
-  // Follows the banner on screen; tapping it opens that banner's link.
-  Widget _buttonFor(BuildContext context, int index) {
+  // The current banner's Shopify text and button, centered and stacked:
+  // small subtitle, large title, then the button. Blank fields take no space.
+  // The text ignores touches so the banner can still be swiped and tapped
+  // through it.
+  Widget _contentFor(BuildContext context, int index) {
     final banner = index < widget.banners.length ? widget.banners[index] : null;
-    final label = banner?.buttonLabel;
-    if (label == null) return const SizedBox.shrink();
+    if (banner == null) return const SizedBox.shrink();
     final r = R.of(context);
-    return GestureDetector(
+    final subtitle = banner.subtitle.trim();
+    final title = banner.title.trim();
+    return Column(
       key: ValueKey(index),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (subtitle.isNotEmpty)
+          IgnorePointer(
+            child: Text(
+              subtitle.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppFonts.subheading,
+                color: AppColors.danger,
+                fontSize: r.sp(18),
+                // Proportional to the text, so it looks the same on every
+                // screen size.
+                letterSpacing: r.sp(18) * 0.16,
+              ),
+            ),
+          ),
+        // Larger than it looks: the title's tight line height lets its
+        // capitals rise about 10 above its top edge.
+        if (subtitle.isNotEmpty && title.isNotEmpty) SizedBox(height: r.dp(16)),
+        if (title.isNotEmpty)
+          IgnorePointer(
+            // Skewed for an italic tilt, like the section headings; Anton
+            // has no italic face.
+            child: Transform(
+              transform: Matrix4.skewX(-0.2),
+              alignment: Alignment.center,
+              child: Text(
+                title.toUpperCase(),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppFonts.heading,
+                  color: Colors.white,
+                  fontSize: r.sp(52),
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: r.sp(52) * -0.045,
+                  // Anton's capital height, so stacked lines touch.
+                  height: 0.86,
+                ),
+              ),
+            ),
+          ),
+        if (banner.buttonLabel != null) ...[
+          if (subtitle.isNotEmpty || title.isNotEmpty)
+            SizedBox(height: r.dp(16)),
+          _button(context, banner, index),
+        ],
+      ],
+    );
+  }
+
+  // Clear glass, so the photo stays sharp and visible moving behind it: the
+  // backdrop is brightened to cancel out the dark scrim at the bottom of the
+  // banner. Tapping it opens that banner's link.
+  Widget _button(BuildContext context, HomeBanner banner, int index) {
+    final r = R.of(context);
+    final radius = BorderRadius.circular(r.dp(3));
+    return GestureDetector(
       onTap: widget.onTap == null ? null : () => widget.onTap!(index),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: r.dp(18),
-          vertical: r.dp(11),
-        ),
-        decoration: BoxDecoration(
-          color: hexToColor(banner!.buttonColorHex) ?? Colors.white,
-          borderRadius: BorderRadius.circular(r.dp(3)),
-        ),
-        child: Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            fontFamily: AppFonts.accent,
-            color: hexToColor(banner.buttonTextColorHex) ??
-                const Color(0xFF111111),
-            fontSize: r.sp(12),
-            fontWeight: FontWeight.w600,
-            letterSpacing: 2.0,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: const ColorFilter.matrix([
+            1.8, 0, 0, 0, 0, //
+            0, 1.8, 0, 0, 0, //
+            0, 0, 1.8, 0, 0, //
+            0, 0, 0, 1, 0, //
+          ]),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: r.dp(18),
+              vertical: r.dp(11),
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: radius,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+            ),
+            child: Text(
+              banner.buttonLabel!.toUpperCase(),
+              style: TextStyle(
+                fontFamily: AppFonts.accent,
+                color: hexToColor(banner.buttonTextColorHex) ?? Colors.white,
+                fontSize: r.sp(12),
+                fontWeight: FontWeight.w600,
+                letterSpacing: 2.0,
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
+  // Extra upward travel for the photo on top of the page's own scroll,
+  // ignoring pull-to-refresh overscroll.
+  double get _photoShift {
+    final scroll = widget.scrollController;
+    if (!scroll.hasClients) return 0;
+    return math.max(0, scroll.offset) * _extraPhotoSpeed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final count = _count;
+    final r = R.of(context);
+    // Spare photo below the banner, so its extra travel never leaves a gap
+    // before the banner has scrolled away.
+    final photoHeight = widget.screenHeight * (1 + _extraPhotoSpeed);
     return Stack(
       fit: StackFit.expand,
       children: [
-        PageView.builder(
-          controller: _controller,
-          itemCount: count > 1 ? null : count,
-          onPageChanged: (i) {
-            setState(() => _page = (i - _loopStart) % count);
-            _restartTimer();
-          },
-          itemBuilder: (_, i) {
-            final index = (i - _loopStart) % count;
-            return GestureDetector(
-              onTap: widget.onTap == null ? null : () => widget.onTap!(index),
-              child: CachedNetworkImage(
-                imageUrl: widget.imageUrls[index],
-                httpHeaders: ShopifyConstants.imageHeaders,
-                fadeInDuration: const Duration(milliseconds: 150),
-                fit: BoxFit.cover,
-                placeholder: (_, _) => const ColoredBox(color: Colors.black),
-                errorWidget: (_, _, _) =>
-                    const ColoredBox(color: Colors.black),
-              ),
-            );
-          },
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: photoHeight,
+          child: ListenableBuilder(
+            listenable: widget.scrollController,
+            builder: (_, child) => Transform.translate(
+              offset: Offset(0, -_photoShift),
+              child: child,
+            ),
+            child: PageView.builder(
+              controller: _controller,
+              itemCount: count > 1 ? null : count,
+              onPageChanged: (i) {
+                setState(() => _page = (i - _loopStart) % count);
+                _restartTimer();
+              },
+              itemBuilder: (_, i) {
+                final index = (i - _loopStart) % count;
+                return GestureDetector(
+                  onTap: widget.onTap == null
+                      ? null
+                      : () => widget.onTap!(index),
+                  // Grain lives on the page, so it slides with its image.
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CachedNetworkImage(
+                        imageUrl: widget.imageUrls[index],
+                        httpHeaders: ShopifyConstants.imageHeaders,
+                        fadeInDuration: const Duration(milliseconds: 150),
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                        placeholder: (_, _) =>
+                            const ColoredBox(color: Colors.black),
+                        errorWidget: (_, _, _) =>
+                            const ColoredBox(color: Colors.black),
+                      ),
+                      const BannerGrain(),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
         ),
         ...widget.overlays,
         Positioned(
-          left: BannerPageDots.right,
-          bottom: BannerPageDots.bottom - 10,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            child: _buttonFor(context, _page),
+          left: r.dp(24),
+          right: r.dp(24),
+          bottom: BannerPageDots.bottom,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                // Bottom-aligned so banners with different amounts of text
+                // cross-fade above the same line.
+                layoutBuilder: (current, previous) => Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [...previous, ?current],
+                ),
+                child: _contentFor(context, _page),
+              ),
+              if (count > 1) ...[
+                SizedBox(height: r.dp(18)),
+                IgnorePointer(
+                  child: BannerPageDots(count: count, index: _page),
+                ),
+              ],
+            ],
           ),
         ),
-        if (count > 1)
-          Positioned(
-            right: BannerPageDots.right,
-            bottom: BannerPageDots.bottom,
-            child: BannerPageDots(count: count, index: _page),
-          ),
       ],
     );
   }

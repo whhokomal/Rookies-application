@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rookies_jeans/constants/app_ui.dart';
+import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/models/banner_model.dart';
 import 'package:rookies_jeans/models/collection_model.dart';
 import 'package:rookies_jeans/models/home_content_models.dart';
@@ -55,6 +56,7 @@ class ExploreCategoriesPage extends StatefulWidget {
 
 class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
   late Future<List<ShopMenuSection>> _future;
+  late Future<HomeBanner?> _imageFuture;
 
   _MenuPanel? _expandedPanel;
 
@@ -62,12 +64,15 @@ class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
   void initState() {
     super.initState();
     _future = ShopifyStorefrontService.instance.getExploreMenuSections();
+    _imageFuture = ShopifyStorefrontService.instance.getExploreCategoriesImage();
   }
 
   Future<void> _refresh() async {
     setState(() {
       ShopifyStorefrontService.instance.clearCache();
       _future = ShopifyStorefrontService.instance.getExploreMenuSections();
+      _imageFuture =
+          ShopifyStorefrontService.instance.getExploreCategoriesImage();
       _expandedPanel = null;
     });
     await _future;
@@ -167,7 +172,10 @@ class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
             ],
           ),
         ),
+        // Open at the bottom so the page runs behind the floating nav bar;
+        // [_exploreImage] leaves room to scroll everything clear of it.
         body: SafeArea(
+          bottom: false,
           child: RefreshIndicator(
             onRefresh: _refresh,
             child: FutureBuilder<List<ShopMenuSection>>(
@@ -186,68 +194,76 @@ class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
                 final ShopMenuSection? bottomWear =
                     _sectionByHandle(sections, 'bottom-wear');
 
-                return ListView(
+                return CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  children: [
-                    _MenuRow(
-                      title: 'COLLECTIONS',
-                      trailing: Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.primary,
-                      ),
-                      onTap: _openCollections,
-                      fontFamily: AppFonts.body,
-                      fontWeight: FontWeight.w900,
+                  slivers: [
+                    SliverList.list(
+                      children: [
+                        const SizedBox(height: 8),
+                        _MenuRow(
+                          title: 'COLLECTIONS',
+                          trailing: Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColors.primary,
+                          ),
+                          onTap: _openCollections,
+                          fontFamily: AppFonts.body,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        _divider(),
+                        _MenuRow(
+                          title: (topWear?.title ?? 'TOP WEAR').toUpperCase(),
+                          trailing: _panelIcon(_expandedPanel == _MenuPanel.topWear),
+                          onTap: () => _togglePanel(_MenuPanel.topWear),
+                          fontFamily: AppFonts.body,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        AnimatedCrossFade(
+                          duration: const Duration(milliseconds: 200),
+                          crossFadeState: _expandedPanel == _MenuPanel.topWear
+                              ? CrossFadeState.showFirst
+                              : CrossFadeState.showSecond,
+                          firstChild: _CategoriesGrid(
+                            categories: topWear?.categories ?? const [],
+                            headFont: AppFonts.body,
+                            bodyFont: AppFonts.accent,
+                            onCategoryTap: _openCategory,
+                            onFitTap: _openFit,
+                          ),
+                          secondChild: const SizedBox(width: double.infinity),
+                        ),
+                        _divider(),
+                        _MenuRow(
+                          title: (bottomWear?.title ?? 'BOTTOM WEAR').toUpperCase(),
+                          trailing:
+                              _panelIcon(_expandedPanel == _MenuPanel.bottomWear),
+                          onTap: () => _togglePanel(_MenuPanel.bottomWear),
+                          fontFamily: AppFonts.body,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        AnimatedCrossFade(
+                          duration: const Duration(milliseconds: 200),
+                          crossFadeState: _expandedPanel == _MenuPanel.bottomWear
+                              ? CrossFadeState.showFirst
+                              : CrossFadeState.showSecond,
+                          firstChild: _CategoriesGrid(
+                            categories: bottomWear?.categories ?? const [],
+                            headFont: AppFonts.body,
+                            bodyFont: AppFonts.accent,
+                            onCategoryTap: _openCategory,
+                            onFitTap: _openFit,
+                          ),
+                          secondChild: const SizedBox(width: double.infinity),
+                        ),
+                        _divider(),
+                      ],
                     ),
-                    _divider(),
-                    _MenuRow(
-                      title: (topWear?.title ?? 'TOP WEAR').toUpperCase(),
-                      trailing: _panelIcon(_expandedPanel == _MenuPanel.topWear),
-                      onTap: () => _togglePanel(_MenuPanel.topWear),
-                      fontFamily: AppFonts.body,
-                      fontWeight: FontWeight.w900,
+                    // Its full height, or whatever the options leave if
+                    // that's more.
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _exploreImage(),
                     ),
-                    AnimatedCrossFade(
-                      duration: const Duration(milliseconds: 200),
-                      crossFadeState: _expandedPanel == _MenuPanel.topWear
-                          ? CrossFadeState.showFirst
-                          : CrossFadeState.showSecond,
-                      firstChild: _CategoriesGrid(
-                        categories: topWear?.categories ?? const [],
-                        headFont: AppFonts.body,
-                        bodyFont: AppFonts.accent,
-                        onCategoryTap: _openCategory,
-                        onFitTap: _openFit,
-                      ),
-                      secondChild: const SizedBox(width: double.infinity),
-                    ),
-                    _divider(),
-                    _MenuRow(
-                      title: (bottomWear?.title ?? 'BOTTOM WEAR').toUpperCase(),
-                      trailing:
-                          _panelIcon(_expandedPanel == _MenuPanel.bottomWear),
-                      onTap: () => _togglePanel(_MenuPanel.bottomWear),
-                      fontFamily: AppFonts.body,
-                      fontWeight: FontWeight.w900,
-                    ),
-                    AnimatedCrossFade(
-                      duration: const Duration(milliseconds: 200),
-                      crossFadeState: _expandedPanel == _MenuPanel.bottomWear
-                          ? CrossFadeState.showFirst
-                          : CrossFadeState.showSecond,
-                      firstChild: _CategoriesGrid(
-                        categories: bottomWear?.categories ?? const [],
-                        headFont: AppFonts.body,
-                        bodyFont: AppFonts.accent,
-                        onCategoryTap: _openCategory,
-                        onFitTap: _openFit,
-                      ),
-                      secondChild: const SizedBox(width: double.infinity),
-                    ),
-                    _divider(),
-                    // Clearance for the floating bottom nav bar.
-                    const SizedBox(height: 110),
                   ],
                 );
               },
@@ -255,6 +271,41 @@ class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// The image set in Shopify ("Explore Categories Image"), full width and at
+  /// its own shape, with the page scrolling to reach the rest of it. On a
+  /// screen with more room than that, it grows to fill the space instead.
+  ///
+  /// The sized box sets the height the page scrolls through: the image plus
+  /// room to bring its bottom edge up clear of the floating nav bar.
+  Widget _exploreImage() {
+    return FutureBuilder<HomeBanner?>(
+      future: _imageFuture,
+      builder: (context, snapshot) {
+        final image = snapshot.data;
+        final navClearance = MediaQuery.paddingOf(context).bottom;
+        final imageHeight = image == null
+            ? 0.0
+            : MediaQuery.sizeOf(context).width / (image.aspectRatio ?? 0.75);
+        return Stack(
+          children: [
+            SizedBox(height: imageHeight + navClearance),
+            if (image != null)
+              Positioned.fill(
+                bottom: navClearance,
+                child: CachedNetworkImage(
+                  imageUrl: image.imageUrl!,
+                  httpHeaders: ShopifyConstants.imageHeaders,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  errorWidget: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

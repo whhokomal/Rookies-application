@@ -13,9 +13,8 @@ class HomeBanner {
   /// button; the button opens [link].
   final String? buttonLabel;
 
-  /// Button background and text colors as `#RRGGBB` ("Button color" and
-  /// "Button text color" in Shopify). Null = the default white / near-black.
-  final String? buttonColorHex;
+  /// Button text color as `#RRGGBB` ("Button text color" in Shopify). Null =
+  /// white. The button itself is clear glass, so "Button color" is unused.
   final String? buttonTextColorHex;
 
   /// Width ÷ height of the uploaded image, when known, so the banner can be
@@ -29,7 +28,6 @@ class HomeBanner {
     required this.subtitle,
     this.link,
     this.buttonLabel,
-    this.buttonColorHex,
     this.buttonTextColorHex,
     this.aspectRatio,
   });
@@ -56,7 +54,7 @@ class HomeBanner {
   factory HomeBanner.fromMetaobjectJson(Map<String, dynamic> json) {
     final fields = (json['fields'] as List?) ?? [];
     String title = '', subtitle = '', link = '', buttonLabel = '';
-    String? imageUrl, buttonColor, buttonTextColor;
+    String? imageUrl, buttonTextColor;
 
     for (final f in fields) {
       switch (f['key'] as String) {
@@ -67,7 +65,6 @@ class HomeBanner {
         case 'button_label':
           buttonLabel = (f['value'] as String? ?? '').trim();
           break;
-        case 'button_color':      buttonColor     = f['value'] as String?; break;
         case 'button_text_color': buttonTextColor = f['value'] as String?; break;
         case 'image':
           imageUrl = f['reference']?['image']?['url'] as String?;
@@ -82,7 +79,6 @@ class HomeBanner {
       subtitle: subtitle,
       link: link.isNotEmpty ? link : null,
       buttonLabel: buttonLabel.isNotEmpty ? buttonLabel : null,
-      buttonColorHex: buttonColor,
       buttonTextColorHex: buttonTextColor,
     );
   }

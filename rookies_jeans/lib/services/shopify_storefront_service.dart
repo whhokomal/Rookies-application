@@ -1038,6 +1038,42 @@ for (final e in rawVariantEdges) {
     }
   }
 
+  /// The image below the options on the Explore Categories page (the
+  /// `explore_categories_image` metaobject), or null when there isn't one.
+  Future<HomeBanner?> getExploreCategoriesImage() =>
+      _cachedFetch('exploreCategoriesImage', _fetchExploreCategoriesImage);
+
+  Future<HomeBanner?> _fetchExploreCategoriesImage() async {
+    const String query = r'''
+      query getExploreCategoriesImage {
+        metaobjects(type: "explore_categories_image", first: 1) {
+          edges {
+            node {
+              id
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) width height } } } }
+            }
+          }
+        }
+      }
+    ''';
+
+    try {
+      final res = await ShopifyGraphQL.post(query);
+      _log('getExploreCategoriesImage → ${res.statusCode}');
+      if (res.hasErrors || res.data == null) return null;
+
+      final edges = (res.data!['metaobjects']['edges'] as List?) ?? [];
+      if (edges.isEmpty) return null;
+      final image = HomeBanner.fromCollectionsBannerJson(
+        edges.first['node'] as Map<String, dynamic>,
+      );
+      return image.imageUrl != null ? image : null;
+    } catch (e) {
+      _log('getExploreCategoriesImage EXCEPTION: $e');
+      return null;
+    }
+  }
+
   Future<List<PromoBlockContent>> getPromoBlocks() =>
       _cachedFetch('promoBlocks', _fetchPromoBlocks);
 
