@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rookies_jeans/constants/app_ui.dart';
@@ -15,6 +14,7 @@ import 'package:rookies_jeans/screens/products/product_peek_dialog.dart';
 import 'package:rookies_jeans/screens/products/products.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
+import 'package:rookies_jeans/widgets/banner_grain.dart';
 import 'package:rookies_jeans/widgets/banner_page_dots.dart';
 import 'package:rookies_jeans/widgets/price_text.dart';
 import 'package:rookies_jeans/widgets/sticker_chip.dart';
@@ -295,10 +295,9 @@ class _ExploreCategoriesPageState extends State<ExploreCategoriesPage> {
             if (image != null)
               Positioned.fill(
                 bottom: navClearance,
-                child: CachedNetworkImage(
+                child: GrainedNetworkImage(
                   imageUrl: image.imageUrl!,
                   httpHeaders: ShopifyConstants.imageHeaders,
-                  fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
                   errorWidget: (_, _, _) => const SizedBox.shrink(),
                 ),
@@ -963,18 +962,23 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
     );
   }
 
-  Widget _imageOrPlaceholder(String? url, {BoxFit fit = BoxFit.cover}) {
+  Widget _imageOrPlaceholder(
+    String? url, {
+    BoxFit fit = BoxFit.cover,
+    bool grain = true,
+  }) {
     final placeholder = Center(
       child: Icon(Icons.image_outlined, color: Colors.black26, size: 28),
     );
     if (url == null) return placeholder;
-    return CachedNetworkImage(
+    return GrainedNetworkImage(
       imageUrl: url,
       fit: fit,
       alignment: Alignment.topCenter,
       fadeInDuration: const Duration(milliseconds: 150),
       placeholder: (_, _) => const SizedBox.shrink(),
       errorWidget: (_, _, _) => placeholder,
+      grain: grain,
     );
   }
 
@@ -1204,6 +1208,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
               child: _imageOrPlaceholder(
                 look.imageUrl ?? look.products.first.primaryImageUrl,
                 fit: BoxFit.contain,
+                grain: false,
               ),
             ),
           ),
@@ -1438,7 +1443,13 @@ class _BannerCarouselState extends State<_BannerCarousel> {
       return SizedBox(
         height: height,
         width: double.infinity,
-        child: Image.asset('assets/banner.jpeg', fit: BoxFit.cover),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset('assets/banner.jpeg', fit: BoxFit.cover),
+            const BannerGrain(),
+          ],
+        ),
       );
     }
 
@@ -1463,9 +1474,8 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                 final banner = widget.banners[i];
                 return GestureDetector(
                   onTap: () => widget.onTap(banner),
-                  child: CachedNetworkImage(
+                  child: GrainedNetworkImage(
                     imageUrl: banner.imageUrl!,
-                    fit: BoxFit.cover,
                     // If a slide is a different shape, keep its top (the
                     // headline) and trim the bottom instead.
                     alignment: Alignment.topCenter,
@@ -1643,9 +1653,8 @@ class _CategoryTile extends StatelessWidget {
                 Container(
                   color: const Color(0xFFD9D9D9),
                   child: category.imageUrl != null
-                      ? CachedNetworkImage(
+                      ? GrainedNetworkImage(
                           imageUrl: category.imageUrl!,
-                          fit: BoxFit.cover,
                           placeholder: (_, _) => const Center(
                             child: SizedBox(
                               width: 20,

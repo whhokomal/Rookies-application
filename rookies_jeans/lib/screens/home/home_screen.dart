@@ -1251,9 +1251,8 @@ class _HomeScreenState extends State<HomeScreen> {
           fit: StackFit.expand,
           children: [
             tile.imageUrl != null
-                ? CachedNetworkImage(
+                ? GrainedNetworkImage(
                     imageUrl: tile.imageUrl!,
-                    fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
                     placeholder: (_, _) =>
                         Container(color: const Color(0xFFE0E0E0)),
@@ -1267,6 +1266,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     errorBuilder: (_, _, _) =>
                         Container(color: const Color(0xFFE0E0E0)),
                   ),
+            // Network images add their own grain once they've loaded.
+            if (tile.imageUrl == null) const BannerGrain(),
             if (tile.label != null && tile.label!.trim().isNotEmpty)
               Positioned(
                 left: r.dp(12),
@@ -1774,23 +1775,15 @@ class _HeroBannerPagerState extends State<_HeroBannerPager> {
                   onTap: widget.onTap == null
                       ? null
                       : () => widget.onTap!(index),
-                  // Grain lives on the page, so it slides with its image.
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CachedNetworkImage(
-                        imageUrl: widget.imageUrls[index],
-                        httpHeaders: ShopifyConstants.imageHeaders,
-                        fadeInDuration: const Duration(milliseconds: 150),
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                        placeholder: (_, _) =>
-                            const ColoredBox(color: Colors.black),
-                        errorWidget: (_, _, _) =>
-                            const ColoredBox(color: Colors.black),
-                      ),
-                      const BannerGrain(),
-                    ],
+                  child: GrainedNetworkImage(
+                    imageUrl: widget.imageUrls[index],
+                    httpHeaders: ShopifyConstants.imageHeaders,
+                    fadeInDuration: const Duration(milliseconds: 150),
+                    alignment: Alignment.topCenter,
+                    placeholder: (_, _) =>
+                        const ColoredBox(color: Colors.black),
+                    errorWidget: (_, _, _) =>
+                        const ColoredBox(color: Colors.black),
                   ),
                 );
               },
@@ -1894,10 +1887,9 @@ class _RotatingPromoImageState extends State<_RotatingPromoImage> {
           child: child,
         ),
       ),
-      child: CachedNetworkImage(
+      child: GrainedNetworkImage(
         key: ValueKey(url),
         imageUrl: url,
-        fit: BoxFit.cover,
         placeholder: (_, _) => Container(color: const Color(0xFF555555)),
         errorWidget: (_, _, _) => Container(color: const Color(0xFF555555)),
       ),
@@ -1953,6 +1945,8 @@ class _PromoBlockCardState extends State<_PromoBlockCard> {
                       errorBuilder: (_, _, _) =>
                           Container(color: const Color(0xFF555555)),
                     ),
+              // Network images add their own grain once they've loaded.
+              if (widget.imageUrls.isEmpty) const BannerGrain(),
               // Scrim only for the app's own label/button; artwork that
               // carries its own text is left undimmed.
               if (widget.label.isNotEmpty || widget.buttonLabel.isNotEmpty)

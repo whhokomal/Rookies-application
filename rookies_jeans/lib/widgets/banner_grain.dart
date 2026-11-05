@@ -3,7 +3,57 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+
+/// A network image with [BannerGrain] over it. The grain only appears once the
+/// photo has loaded, so placeholders and failed images stay plain.
+class GrainedNetworkImage extends StatelessWidget {
+  const GrainedNetworkImage({
+    super.key,
+    required this.imageUrl,
+    this.httpHeaders,
+    this.fit = BoxFit.cover,
+    this.alignment = Alignment.center,
+    this.fadeInDuration = const Duration(milliseconds: 500),
+    this.placeholder,
+    this.errorWidget,
+    this.grain = true,
+  });
+
+  final String imageUrl;
+  final Map<String, String>? httpHeaders;
+  final BoxFit fit;
+  final Alignment alignment;
+  final Duration fadeInDuration;
+  final PlaceholderWidgetBuilder? placeholder;
+  final LoadingErrorWidgetBuilder? errorWidget;
+
+  /// False for shots on a plain background, where grain shows up as speckle.
+  final bool grain;
+
+  @override
+  Widget build(BuildContext context) {
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      httpHeaders: httpHeaders,
+      fit: fit,
+      alignment: alignment,
+      fadeInDuration: fadeInDuration,
+      placeholder: placeholder,
+      errorWidget: errorWidget,
+      imageBuilder: grain
+          ? (_, image) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image(image: image, fit: fit, alignment: alignment),
+                  const BannerGrain(),
+                ],
+              )
+          : null,
+    );
+  }
+}
 
 /// Subtle film grain over a banner, generated in code so no texture asset is
 /// needed. Fills its parent and ignores touches.
