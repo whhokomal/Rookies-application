@@ -44,6 +44,11 @@ class _SearchTabPageState extends State<SearchTabPage> {
   void initState() {
     super.initState();
     SearchHistoryService.instance.load();
+    _searchFocusNode.addListener(() {
+      if (_searchFocusNode.hasFocus) {
+        ShopifyStorefrontService.instance.warmStyleIndex();
+      }
+    });
     // Keeps fetching the next page as the user nears the bottom, so the list
     // grows until every matching product has been shown.
     _scrollController.addListener(() {

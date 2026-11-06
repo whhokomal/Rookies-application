@@ -14,6 +14,14 @@ import 'package:rookies_jeans/models/shop_policy_model.dart';
 /// What a product card's color swatch needs about another color's product.
 typedef ColorSwatchInfo = ({bool available, String? photoUrl});
 
+/// A product's style number and what ordering results by it needs.
+typedef _StyleIndexEntry = ({
+  String id,
+  String style,
+  bool available,
+  double price,
+});
+
 class PaginatedProductsResponse {
   final List<ShopifyProduct> products;
   final bool hasNextPage;
@@ -790,6 +798,195 @@ for (final e in rawVariantEdges) {
           ))
       .toList();
 
+  /// Product fields shown by search, shared by the `search` and `nodes`
+  /// lookups so both produce the same cards.
+  static const String _searchProductFragment = r'''
+    fragment SearchProductFields on Product {
+      id
+      title
+      handle
+      createdAt
+      productType
+      tags
+      priceRange { minVariantPrice { amount currencyCode } }
+      compareAtPriceRange { minVariantPrice { amount currencyCode } }
+      images(first: 2) { edges { node { url(transform: {maxWidth: 800}) altText } } }
+      groupData: metafield(namespace: "vkcl", key: "group_data") { value }
+      rating: metafield(namespace: "reviews", key: "rating") { value }
+      ratingCount: metafield(namespace: "reviews", key: "rating_count") { value }
+      options {
+        name
+        values
+        optionValues { name swatch { color } }
+      }
+      variants(first: 10) {
+        edges {
+          node {
+            id
+            title
+            sku
+            availableForSale
+            selectedOptions { name value }
+          }
+        }
+      }
+    }
+  ''';
+
+  /// One word of 3+ letters/digits with at least one digit: "6572", "657",
+  /// "rj65". Two-digit queries stay with normal search because they are
+  /// usually waist sizes.
+  static final RegExp _kStyleQueryPattern =
+      RegExp(r'^(?=.*\d)[a-z0-9]{3,}$', caseSensitive: false);
+
+  // Marks an offset into the style matches, as opposed to a Shopify cursor.
+  static const String _kStyleCursorPrefix = 'style:';
+
+  static const int _kStyleIndexPageSize = 250;
+
+  /// Loads the index ahead of the first search so results aren't held up by
+  /// the catalog scan.
+  void warmStyleIndex() {
+    _cachedStyleIndex().catchError((Object e) {
+      _log('warmStyleIndex EXCEPTION: $e');
+      return const <_StyleIndexEntry>[];
+    });
+  }
+
+  Future<List<_StyleIndexEntry>> _cachedStyleIndex() =>
+      _cachedFetch('styleIndex', _fetchStyleIndex);
+
+  /// Shopify matches only a complete style number: "RJ6572" is found but
+  /// "6572" and "RJ65" are not, and `products(query:)` ignores `sku:`
+  /// filters on the Storefront API. So partial numbers are matched here,
+  /// against every product's style. Style numbers exist only in SKUs
+  /// ("8903891802796-RJ6572-MED_BLUE-30"), and all of a product's variants
+  /// share one, so the first variant is enough.
+  Future<List<_StyleIndexEntry>> _fetchStyleIndex() async {
+    const String gqlQuery = r'''
+    query styleIndex($first: Int!, $after: String) {
+      products(first: $first, after: $after) {
+        edges {
+          node {
+            id
+            availableForSale
+            priceRange { minVariantPrice { amount } }
+            variants(first: 1) { edges { node { sku } } }
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+    ''';
+
+    final entries = <_StyleIndexEntry>[];
+    String? cursor;
+    bool hasNextPage = true;
+
+    while (hasNextPage) {
+      final res = await ShopifyGraphQL.post(
+        gqlQuery,
+        variables: {'first': _kStyleIndexPageSize, 'after': cursor},
+        tag: 'styleIndex',
+      );
+      final products = res.data?['products'] as Map<String, dynamic>?;
+      if (res.hasErrors || products == null) {
+        _log('styleIndex errors: ${res.errors}');
+        break;
+      }
+
+      for (final edge in (products['edges'] as List?) ?? const []) {
+        final node = edge['node'] as Map<String, dynamic>;
+        final variantEdges = (node['variants'] as Map?)?['edges'] as List?;
+        final sku = variantEdges == null || variantEdges.isEmpty
+            ? null
+            : variantEdges.first['node']?['sku'] as String?;
+        final skuParts = sku?.split('-') ?? const <String>[];
+        if (skuParts.length < 2) continue;
+        entries.add((
+          id: node['id'] as String,
+          style: skuParts[1].toUpperCase(),
+          available: node['availableForSale'] as bool? ?? false,
+          price: double.tryParse(
+                node['priceRange']?['minVariantPrice']?['amount']
+                        as String? ??
+                    '',
+              ) ??
+              0,
+        ));
+      }
+
+      final pageInfo = products['pageInfo'] as Map<String, dynamic>?;
+      hasNextPage = pageInfo?['hasNextPage'] as bool? ?? false;
+      cursor = pageInfo?['endCursor'] as String?;
+    }
+
+    return entries;
+  }
+
+  /// Products whose style number contains [query], or null when none do, so
+  /// the caller can fall back to normal search (a full barcode, say).
+  Future<PaginatedProductsResponse?> _searchByStyleNumber(
+    String query, {
+    required int first,
+    String? after,
+    required String sortKey,
+    required bool reverse,
+  }) async {
+    final needle = query.trim().toUpperCase();
+    final index = await _cachedStyleIndex();
+    final matches = index.where((e) => e.style.contains(needle)).toList();
+    if (matches.isEmpty) return null;
+
+    int rank(_StyleIndexEntry e) =>
+        (e.style == needle ? 0 : 2) + (e.available ? 0 : 1);
+    matches.sort((a, b) {
+      var order = sortKey == 'PRICE'
+          ? (reverse ? b.price.compareTo(a.price) : a.price.compareTo(b.price))
+          : rank(a).compareTo(rank(b));
+      if (order == 0) order = a.style.compareTo(b.style);
+      return order == 0 ? a.id.compareTo(b.id) : order;
+    });
+
+    final offset =
+        int.tryParse(after?.substring(_kStyleCursorPrefix.length) ?? '') ?? 0;
+    final pageIds = matches.skip(offset).take(first).map((e) => e.id).toList();
+    if (pageIds.isEmpty) return null;
+
+    const String gqlQuery = r'''
+    query styleSearchProducts($ids: [ID!]!) {
+      nodes(ids: $ids) {
+        ...SearchProductFields
+      }
+    }
+    ''' + _searchProductFragment;
+
+    final res = await ShopifyGraphQL.post(
+      gqlQuery,
+      variables: {'ids': pageIds},
+      tag: 'styleSearchProducts',
+    );
+    if (res.hasErrors) {
+      _log('styleSearchProducts errors: ${res.errors}');
+      return null;
+    }
+
+    final products = ((res.data?['nodes'] as List?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .where((node) => node.isNotEmpty)
+        .map(ShopifyProduct.fromJson)
+        .toList();
+    final nextOffset = offset + pageIds.length;
+    return PaginatedProductsResponse(
+      products: products,
+      hasNextPage: nextOffset < matches.length,
+      endCursor: '$_kStyleCursorPrefix$nextOffset',
+    );
+  }
+
   // Raw page size pulled from Shopify per request while collecting filtered
   // matches — larger than a UI page so sparse queries need fewer round trips.
   static const int _kSearchScanPageSize = 100;
@@ -844,36 +1041,7 @@ for (final e in rawVariantEdges) {
         edges {
           cursor
           node {
-            ... on Product {
-              id
-              title
-              handle
-              createdAt
-              productType
-              tags
-              priceRange { minVariantPrice { amount currencyCode } }
-              compareAtPriceRange { minVariantPrice { amount currencyCode } }
-              images(first: 2) { edges { node { url(transform: {maxWidth: 800}) altText } } }
-              groupData: metafield(namespace: "vkcl", key: "group_data") { value }
-              rating: metafield(namespace: "reviews", key: "rating") { value }
-              ratingCount: metafield(namespace: "reviews", key: "rating_count") { value }
-              options {
-                name
-                values
-                optionValues { name swatch { color } }
-              }
-              variants(first: 10) {
-                edges {
-                  node {
-                    id
-                    title
-                    sku
-                    availableForSale
-                    selectedOptions { name value }
-                  }
-                }
-              }
-            }
+            ...SearchProductFields
           }
         }
         pageInfo {
@@ -882,13 +1050,37 @@ for (final e in rawVariantEdges) {
         }
       }
     }
-    ''';
+    ''' + _searchProductFragment;
 
     const empty = PaginatedProductsResponse(
       products: [],
       hasNextPage: false,
       endCursor: null,
     );
+
+    final isStylePage = after?.startsWith(_kStyleCursorPrefix) ?? false;
+    final isStyleQuery = after == null &&
+        filters.isEmpty &&
+        minPrice == null &&
+        maxPrice == null &&
+        _kStyleQueryPattern.hasMatch(query.trim());
+    if (isStylePage || isStyleQuery) {
+      try {
+        final styleResults = await _searchByStyleNumber(
+          query,
+          first: first,
+          after: after,
+          sortKey: sortKey,
+          reverse: reverse,
+        );
+        if (styleResults != null) return styleResults;
+      } catch (e) {
+        _log('searchByStyleNumber EXCEPTION: $e');
+      }
+      // A style cursor means nothing to Shopify, so a later page can't fall
+      // through to the normal search below.
+      if (isStylePage) return empty;
+    }
 
     try {
       final decodedFilters = filters
