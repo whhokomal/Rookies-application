@@ -143,14 +143,16 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
     _controller.loadRequest(_startUrl());
   }
 
-  /// The side cart lives on the home page of the GoKwik cart theme, opened
-  /// as a preview (without Shopify's preview bar) until it is published.
+  /// The side cart opens on a light page of the GoKwik cart theme, as a
+  /// preview (without Shopify's preview bar) until the theme is published.
   Uri _startUrl() {
     if (!widget.openCart) {
       return Uri.parse('${ShopifyConstants.storeUrl}/cart');
     }
     final themeId = ShopifyConstants.gokwikCartThemeId;
-    return Uri.parse('${ShopifyConstants.storeUrl}/').replace(
+    return Uri.parse(
+      '${ShopifyConstants.storeUrl}${ShopifyConstants.gokwikCartPage}',
+    ).replace(
       queryParameters:
           themeId == null ? null : {'preview_theme_id': themeId, 'pb': '0'},
     );
@@ -237,30 +239,53 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
     window.gokwikSdk.on('modal_closed', function () { post('closed'); });
     return Promise.resolve(window.openGokwikSideCart());
   }
-  function start() {
-    post('step:gokwik-ready');
-    fetch('/cart/clear.js', { method: 'POST', credentials: 'same-origin' })
-      .then(function () {
-        if (!items.length) return { ok: true };
-        return fetch('/cart/add.js', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: items })
-        });
+  // Makes the website cart match the app cart in one request, or none if
+  // it already does: emptying and refilling it takes about twice as long.
+  // Cart attributes are copied onto the order, so Shopify can tell app
+  // orders apart from website orders.
+  function syncCart() {
+    return fetch('/cart.js', { credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('cart read ' + r.status);
+        return r.json();
       })
-      .then(function (r) { if (!r.ok) throw new Error('cart add ' + r.status); })
-      .then(function () {
-        // Cart attributes are copied onto the order, so Shopify can tell
-        // app orders apart from website orders.
+      .then(function (cart) {
+        var current = {};
+        var updates = {};
+        cart.items.forEach(function (i) {
+          current[i.variant_id] = (current[i.variant_id] || 0) + i.quantity;
+          updates[i.variant_id] = 0;
+        });
+        items.forEach(function (i) {
+          updates[i.id] = (updates[i.id] || 0) + i.quantity;
+        });
+        var inSync = cart.attributes['Order Source'] === 'App' &&
+          Object.keys(updates).every(function (id) {
+            return (current[id] || 0) === updates[id];
+          });
+        if (inSync) return;
         return fetch('/cart/update.js', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ attributes: { 'Order Source': 'App' } })
-        });
-      })
-      .then(function (r) { if (!r.ok) throw new Error('cart update ' + r.status); })
+          body: JSON.stringify({
+            updates: updates,
+            attributes: { 'Order Source': 'App' }
+          })
+        })
+          .then(function (r) {
+            if (!r.ok) throw new Error('cart update ' + r.status);
+            return r.json();
+          })
+          .then(function (updated) {
+            // Sold-out items are dropped rather than refused.
+            if (items.length && !updated.item_count) throw new Error('cart empty');
+          });
+      });
+  }
+  function start() {
+    post('step:gokwik-ready');
+    syncCart()
       .then(function () {
         post('step:cart-ready');
         if (openCart) {

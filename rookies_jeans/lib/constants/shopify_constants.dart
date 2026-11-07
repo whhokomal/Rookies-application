@@ -53,6 +53,11 @@ class ShopifyConstants {
   // ignore: unnecessary_nullable_for_final_variable_declarations
   static const String? gokwikCartThemeId = '188046639399';
 
+  /// Page the side cart is opened on. GoKwik is on every page of the theme,
+  /// so this is a light one: the home page takes about twice as long to
+  /// load, with its banners and sections behind the cart unseen.
+  static const String gokwikCartPage = '/pages/contact';
+
   static const String fontHeading    = 'Anton';
   static const String fontSubheading = 'BebasNeue';
   static const String fontBody       = 'Archivo';

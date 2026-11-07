@@ -146,11 +146,21 @@ class _ProductsPageState extends State<ProductsPage> {
   Timer? _autoScrollTimer;
   final Random _random = Random();
 
-  List<ShopifyFilter> get _visibleFilters {
-    return _availableFilters
-        .where((filter) => filter.label.toLowerCase().trim() != 'availability')
-        .toList();
-  }
+  /// Availability offers only "In stock", like the website.
+  List<ShopifyFilter> get _visibleFilters => [
+    for (final filter in _availableFilters)
+      if (filter.label.toLowerCase().trim() == 'availability')
+        ShopifyFilter(
+          id: filter.id,
+          label: filter.label,
+          type: filter.type,
+          values: filter.values
+              .where((v) => v.label.toLowerCase().trim() != 'out of stock')
+              .toList(),
+        )
+      else
+        filter,
+  ];
 
   final List<_PriceOption> _priceOptions = const [
     _PriceOption(label: 'Under ₹999', min: null, max: 999.0),
@@ -917,12 +927,19 @@ class _ProductsPageState extends State<ProductsPage> {
                                       child: Row(
                                          children: [
                                           Expanded(
-                                            child: Text(
-                                              filter.label,
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w900,
-                                                color: AppColors.primary,
+                                            // Shrinks rather than wraps
+                                            // mid-word beside the count.
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                filter.label,
+                                                maxLines: 1,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: AppColors.primary,
+                                                ),
                                               ),
                                             ),
                                           ),

@@ -23,9 +23,11 @@ import 'package:rookies_jeans/widgets/rating_badge.dart';
 import 'package:rookies_jeans/widgets/product_swatch_row.dart';
 import 'package:rookies_jeans/widgets/product_size_row.dart';
 import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
+import 'package:rookies_jeans/widgets/announcement_ticker.dart';
 import 'package:rookies_jeans/widgets/banner_grain.dart';
 import 'package:rookies_jeans/widgets/banner_page_dots.dart';
 import 'package:rookies_jeans/widgets/sticker_chip.dart';
+import 'package:rookies_jeans/widgets/trust_strip.dart';
 
 typedef R = Responsive;
 
@@ -588,6 +590,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           SliverToBoxAdapter(child: _shopTheLookSection()),
                         ..._featureBannerSlivers(),
                         SliverToBoxAdapter(child: _shopByOccasionsSection()),
+                        // Above Explore Collections, whose grid scrolls on
+                        // without end.
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.all(R.of(context).dp(16)),
+                            child: const TrustStrip(),
+                          ),
+                        ),
                         SliverToBoxAdapter(child: _exploreCollectionsSection()),
                         const SliverToBoxAdapter(
                           child: SizedBox(height: _kBottomNavClearance),
@@ -675,7 +685,14 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Stack(
         children: [
           _heroBannerImage(),
-          Positioned(top: 0, left: 0, right: 0, child: _topBar()),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Column(
+              children: [const AnnouncementTicker(), _topBar()],
+            ),
+          ),
         ],
       ),
     );
