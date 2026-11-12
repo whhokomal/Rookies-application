@@ -182,7 +182,10 @@ class _ProductReviewsSectionState extends State<ProductReviewsSection> {
             const SizedBox(height: 8),
             for (final review in _loaded.take(_visible)) ...[
               Divider(height: 24, color: AppColors.border),
-              _ReviewTile(review: review),
+              InkWell(
+                onTap: () => ReviewDetailPage.open(context, review),
+                child: _ReviewTile(review: review),
+              ),
             ],
             if (_hasMore) ...[
               const SizedBox(height: 12),
@@ -419,6 +422,444 @@ class _ReviewTile extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// One review full screen, opened by tapping it: its photos large (with
+/// arrows and thumbnails) above the stars, reviewer, text and helpful votes.
+class ReviewDetailPage extends StatefulWidget {
+  const ReviewDetailPage({super.key, required this.review});
+
+  final ProductReview review;
+
+  static void open(BuildContext context, ProductReview review) {
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => ReviewDetailPage(review: review),
+      ),
+    );
+  }
+
+  @override
+  State<ReviewDetailPage> createState() => _ReviewDetailPageState();
+}
+
+class _ReviewDetailPageState extends State<ReviewDetailPage> {
+  final PageController _pages = PageController();
+  int _index = 0;
+
+  /// This phone's vote on the review, null if none yet.
+  MyThumbVote? _myVote;
+  bool _voting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ReviewsService.instance.myVotes().then((votes) {
+      if (mounted) setState(() => _myVote = votes[widget.review.uuid]);
+    });
+  }
+
+  /// Tapping the chosen thumb takes the vote back; tapping the other one
+  /// switches to it. Only a thumb not yet sent from this phone is sent to
+  /// Judge.me (it can't remove votes); the rest only changes what's shown.
+  Future<void> _tapThumb(bool up) async {
+    final review = widget.review;
+    if (_voting || review.uuid.isEmpty) return;
+    final type = up ? 'up' : 'down';
+    final previous = _myVote ?? const MyThumbVote();
+
+    if (previous.chosen == type || previous.sentCounts.containsKey(type)) {
+      final updated =
+          previous.withChosen(previous.chosen == type ? null : type);
+      setState(() => _myVote = updated);
+      await ReviewsService.instance.setChosen(review.uuid, updated);
+      return;
+    }
+
+    final newCount = (up ? review.thumbUp : review.thumbDown) + 1;
+    setState(() {
+      _voting = true;
+      // Show it at once; put back if the request fails.
+      _myVote = MyThumbVote(
+        chosen: type,
+        sentCounts: {...previous.sentCounts, type: newCount},
+      );
+    });
+    final updated = await ReviewsService.instance.vote(
+      review.uuid,
+      up: up,
+      newCount: newCount,
+      previous: previous,
+    );
+    if (!mounted) return;
+    setState(() {
+      _voting = false;
+      _myVote = updated ?? previous;
+    });
+    if (updated == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Couldn't save your vote. Try again.")),
+      );
+    }
+  }
+
+  List<String> get _pictures => widget.review.pictureUrls;
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  void _goTo(int i) {
+    if (i < 0 || i >= _pictures.length) return;
+    _pages.animateToPage(
+      i,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_pictures.isNotEmpty)
+            _gallery(context)
+          else
+            SafeArea(
+              bottom: false,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: _closeButton(context),
+                ),
+              ),
+            ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 22, 22, 32),
+              child: _details(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _closeButton(BuildContext context) => _squareButton(
+        icon: Icons.close_rounded,
+        size: 24,
+        onTap: () => Navigator.of(context).pop(),
+      );
+
+  /// Small dark rounded button on top of the photo (close and arrows).
+  Widget _squareButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    double size = 22,
+  }) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: onTap,
+        child: SizedBox(
+          width: 30,
+          height: 30,
+          child: Icon(icon, size: size, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget _gallery(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final topInset = MediaQuery.paddingOf(context).top;
+    final many = _pictures.length > 1;
+    return ColoredBox(
+      color: Colors.black,
+      child: Column(
+        children: [
+          SizedBox(
+            height: topInset + width * 0.85,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: PageView.builder(
+                    controller: _pages,
+                    itemCount: _pictures.length,
+                    onPageChanged: (i) => setState(() => _index = i),
+                    itemBuilder: (_, i) => CachedNetworkImage(
+                      imageUrl: _pictures[i],
+                      fit: BoxFit.cover,
+                      placeholder: (_, _) =>
+                          Container(color: AppColors.fieldFill),
+                      errorWidget: (_, _, _) =>
+                          Container(color: AppColors.fieldFill),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: topInset + 8,
+                  right: 8,
+                  child: _closeButton(context),
+                ),
+                if (many) ...[
+                  Positioned(
+                    left: 8,
+                    top: topInset,
+                    bottom: 0,
+                    child: Center(
+                      child: _squareButton(
+                        icon: Icons.chevron_left_rounded,
+                        onTap: () => _goTo(_index - 1),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 8,
+                    top: topInset,
+                    bottom: 0,
+                    child: Center(
+                      child: _squareButton(
+                        icon: Icons.chevron_right_rounded,
+                        onTap: () => _goTo(_index + 1),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 92,
+            child: Center(
+              child: ListView.separated(
+                shrinkWrap: true,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _pictures.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (_, i) => Center(
+                  child: GestureDetector(
+                    onTap: () => _goTo(i),
+                    child: Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: i == _index
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.25),
+                          width: i == _index ? 2 : 1,
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: CachedNetworkImage(
+                        imageUrl: _pictures[i],
+                        fit: BoxFit.cover,
+                        errorWidget: (_, _, _) =>
+                            Container(color: AppColors.fieldFill),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _details() {
+    final review = widget.review;
+    final name =
+        review.reviewerName.isEmpty ? 'Customer' : review.reviewerName;
+    final date = review.createdAt?.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StarRow(rating: review.rating.toDouble(), size: 26),
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 21,
+              backgroundColor: AppColors.fieldFill,
+              child: Text(
+                name.characters.first.toUpperCase(),
+                style: TextStyle(
+                  fontFamily: AppFonts.body,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppFonts.body,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      if (review.verifiedBuyer) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.primary),
+                          ),
+                          child: Text(
+                            'Verified',
+                            style: TextStyle(
+                              fontFamily: AppFonts.body,
+                              fontSize: 11,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (date != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '${two(date.day)}/${two(date.month)}/${date.year}',
+                      style: TextStyle(
+                        fontFamily: AppFonts.body,
+                        fontSize: 12,
+                        color: AppColors.secondaryText,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (review.title.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            review.title,
+            style: TextStyle(
+              fontFamily: AppFonts.body,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+        if (review.body.isNotEmpty) ...[
+          SizedBox(height: review.title.isNotEmpty ? 6 : 16),
+          Text(
+            review.body,
+            style: TextStyle(
+              fontFamily: AppFonts.body,
+              fontSize: 14,
+              height: 1.45,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            Text(
+              'Helpful?',
+              style: TextStyle(
+                fontFamily: AppFonts.body,
+                fontSize: 13,
+                color: AppColors.secondaryText,
+              ),
+            ),
+            const SizedBox(width: 14),
+            _voteButton(up: true, count: review.thumbUp),
+            const SizedBox(width: 8),
+            _voteButton(up: false, count: review.thumbDown),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// A thumb and its count. The chosen thumb is solid and includes this
+  /// phone's vote; tap it again to take it back, or tap the other thumb.
+  Widget _voteButton({required bool up, required int count}) {
+    final type = up ? 'up' : 'down';
+    final vote = _myVote;
+    final chosen = vote?.chosen == type;
+    final sent = vote?.sentCounts[type];
+    final color = chosen ? AppColors.primary : AppColors.secondaryText;
+    // Judge.me's count may or may not include this phone's vote yet.
+    final int shown;
+    if (sent == null) {
+      shown = count;
+    } else if (chosen) {
+      shown = count > sent ? count : sent;
+    } else {
+      // Taken back here, but Judge.me keeps it: leave it out once counted.
+      shown = count >= sent && count > 0 ? count - 1 : count;
+    }
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: _voting ? null : () => _tapThumb(up),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              up
+                  ? (chosen ? Icons.thumb_up_rounded : Icons.thumb_up_outlined)
+                  : (chosen
+                      ? Icons.thumb_down_rounded
+                      : Icons.thumb_down_outlined),
+              size: 18,
+              color: color,
+              semanticLabel: up ? 'Helpful' : 'Not helpful',
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$shown',
+              style: TextStyle(
+                fontFamily: AppFonts.body,
+                fontSize: 13,
+                fontWeight: chosen ? FontWeight.w700 : FontWeight.w400,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

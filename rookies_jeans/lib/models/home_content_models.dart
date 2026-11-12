@@ -22,12 +22,43 @@ String? _imageUrlFrom(Map<String, dynamic>? field) {
 
 String? _textFrom(Map<String, dynamic>? field) => field?['value'] as String?;
 
+/// The collection an entry points to: the picked "Collection" field when
+/// set, else the old free-text "collection_handle" field (a bare handle or
+/// a pasted collection URL). [title] is null unless one was picked.
+({String handle, String? title}) _collectionFrom(Map<String, dynamic> json) {
+  final picked = json['collection']?['reference'] as Map<String, dynamic>?;
+  final pickedHandle = picked?['handle'] as String?;
+  if (pickedHandle != null && pickedHandle.isNotEmpty) {
+    final title = (picked?['title'] as String?)?.trim();
+    return (
+      handle: pickedHandle,
+      title: title == null || title.isEmpty ? null : title,
+    );
+  }
+  return (handle: _handleFrom(_textFrom(json['collection_handle'])), title: null);
+}
+
+/// Accepts either a bare handle ("under-999") or a pasted collection URL
+/// ("https://rookiesjeans.com/collections/under-999?x=1") and returns the
+/// handle.
+String _handleFrom(String? raw) {
+  String value = (raw ?? '').trim();
+  final int idx = value.indexOf('/collections/');
+  if (idx >= 0) value = value.substring(idx + '/collections/'.length);
+  value = value.split(RegExp(r'[/?#]')).first;
+  return value.trim().toLowerCase();
+}
+
 class PromoBlockContent {
   final String id;
   final String? imageUrl;
   final String label;
   final String? buttonLabel;
   final String collectionHandle;
+
+  /// Title of the picked collection; null for entries still using the old
+  /// text handle.
+  final String? collectionTitle;
   final int sortOrder;
 
   /// Image width / height, so the block can be shown uncropped; null when
@@ -40,11 +71,13 @@ class PromoBlockContent {
     required this.label,
     this.buttonLabel,
     required this.collectionHandle,
+    this.collectionTitle,
     this.sortOrder = 0,
     this.aspectRatio,
   });
 
   factory PromoBlockContent.fromMetaobjectJson(Map<String, dynamic> json) {
+    final collection = _collectionFrom(json);
     final image = json['image']?['reference']?['image'];
     final width = _asInt(image?['width']);
     final height = _asInt(image?['height']);
@@ -56,7 +89,8 @@ class PromoBlockContent {
       imageUrl: _imageUrlFrom(json['image']),
       label: _textFrom(json['label']) ?? '',
       buttonLabel: _textFrom(json['button_label']),
-      collectionHandle: _textFrom(json['collection_handle']) ?? '',
+      collectionHandle: collection.handle,
+      collectionTitle: collection.title,
       sortOrder: _asInt(_textFrom(json['sort_order'])) ?? 0,
     );
   }
@@ -72,6 +106,9 @@ class FeatureBannerContent {
 
   /// Collection handle, `/collections/...`, `/products/...` or a full URL.
   final String link;
+
+  /// Title of the picked collection, shown on the page it opens.
+  final String? collectionTitle;
   final int sortOrder;
 
   /// Image width / height, so the banner can be shown uncropped; null when
@@ -84,11 +121,15 @@ class FeatureBannerContent {
     this.label = '',
     this.buttonLabel,
     required this.link,
+    this.collectionTitle,
     this.sortOrder = 0,
     this.aspectRatio,
   });
 
   factory FeatureBannerContent.fromMetaobjectJson(Map<String, dynamic> json) {
+    final picked = json['collection']?['reference'] as Map<String, dynamic>?;
+    final pickedHandle = picked?['handle'] as String?;
+    final hasPicked = pickedHandle != null && pickedHandle.isNotEmpty;
     final image = json['image']?['reference']?['image'];
     final width = _asInt(image?['width']);
     final height = _asInt(image?['height']);
@@ -100,7 +141,11 @@ class FeatureBannerContent {
       imageUrl: _imageUrlFrom(json['image']),
       label: _textFrom(json['label']) ?? '',
       buttonLabel: _textFrom(json['button_label']),
-      link: _textFrom(json['link']) ?? '',
+      // A picked collection wins over the typed link.
+      link: hasPicked
+          ? '/collections/$pickedHandle'
+          : _textFrom(json['link']) ?? '',
+      collectionTitle: hasPicked ? _collectionFrom(json).title : null,
       sortOrder: _asInt(_textFrom(json['sort_order'])) ?? 0,
     );
   }
@@ -111,6 +156,10 @@ class ExploreCategoryContent {
   final String? imageUrl;
   final String label;
   final String collectionHandle;
+
+  /// Title of the picked collection; null for entries still using the old
+  /// text handle.
+  final String? collectionTitle;
   final String section;
   final int sortOrder;
 
@@ -119,6 +168,7 @@ class ExploreCategoryContent {
     this.imageUrl,
     required this.label,
     required this.collectionHandle,
+    this.collectionTitle,
     required this.section,
     this.sortOrder = 0,
   });
@@ -126,11 +176,13 @@ class ExploreCategoryContent {
   bool get isBottomwear => section.trim().toLowerCase() == 'bottom';
 
   factory ExploreCategoryContent.fromMetaobjectJson(Map<String, dynamic> json) {
+    final collection = _collectionFrom(json);
     return ExploreCategoryContent(
       id: json['id'] as String,
       imageUrl: _imageUrlFrom(json['image']),
       label: _textFrom(json['label']) ?? '',
-      collectionHandle: _textFrom(json['collection_handle']) ?? '',
+      collectionHandle: collection.handle,
+      collectionTitle: collection.title,
       section: _textFrom(json['section']) ?? 'top',
       sortOrder: _asInt(_textFrom(json['sort_order'])) ?? 0,
     );
@@ -143,37 +195,31 @@ class ExploreTabContent {
   final String id;
   final String label;
   final String collectionHandle;
+
+  /// Title of the picked collection; null for entries still using the old
+  /// text handle.
+  final String? collectionTitle;
   final int sortOrder;
 
   const ExploreTabContent({
     required this.id,
     required this.label,
     required this.collectionHandle,
+    this.collectionTitle,
     this.sortOrder = 0,
   });
 
   factory ExploreTabContent.fromMetaobjectJson(Map<String, dynamic> json) {
-    // The picked "Collection" wins; the old free-text handle field is the
-    // fallback for entries that haven't picked one.
-    final picked = json['collection']?['reference']?['handle'] as String?;
+    final collection = _collectionFrom(json);
     return ExploreTabContent(
       id: json['id'] as String,
       label: (_textFrom(json['label']) ?? '').trim(),
-      collectionHandle: picked ?? _handleFrom(_textFrom(json['collection_handle'])),
+      collectionHandle: collection.handle,
+      collectionTitle: collection.title,
       sortOrder: _asInt(_textFrom(json['sort_order'])) ?? 0,
     );
   }
 
-  /// Accepts either a bare handle ("under-999") or a pasted collection URL
-  /// ("https://rookiesjeans.com/collections/under-999?x=1") and returns the
-  /// handle.
-  static String _handleFrom(String? raw) {
-    String value = (raw ?? '').trim();
-    final int idx = value.indexOf('/collections/');
-    if (idx >= 0) value = value.substring(idx + '/collections/'.length);
-    value = value.split(RegExp(r'[/?#]')).first;
-    return value.trim().toLowerCase();
-  }
 }
 
 class ShopTheLookEntry {
@@ -207,6 +253,10 @@ class OccasionTileContent {
   final String? imageUrl;
   final String? label;
   final String collectionHandle;
+
+  /// Title of the picked collection; null for entries still using the old
+  /// text handle.
+  final String? collectionTitle;
   final int sortOrder;
 
   const OccasionTileContent({
@@ -214,15 +264,18 @@ class OccasionTileContent {
     this.imageUrl,
     this.label,
     required this.collectionHandle,
+    this.collectionTitle,
     this.sortOrder = 0,
   });
 
   factory OccasionTileContent.fromMetaobjectJson(Map<String, dynamic> json) {
+    final collection = _collectionFrom(json);
     return OccasionTileContent(
       id: json['id'] as String,
       imageUrl: _imageUrlFrom(json['image']),
       label: _textFrom(json['label']),
-      collectionHandle: _textFrom(json['collection_handle']) ?? '',
+      collectionHandle: collection.handle,
+      collectionTitle: collection.title,
       sortOrder: _asInt(_textFrom(json['sort_order'])) ?? 0,
     );
   }

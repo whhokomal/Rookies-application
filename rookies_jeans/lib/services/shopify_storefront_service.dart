@@ -184,6 +184,212 @@ class ShopifyStorefrontService {
     return response.products;
   }
 
+  /// How many products a collection has with [filters] applied (the
+  /// "308 PRODUCTS" on a listing page). The Storefront API has no count
+  /// field and its filter counts don't add up, so this pages through ids
+  /// only (250 a request). Null on failure.
+  Future<int?> countCollectionProducts(
+    String handle, {
+    List<String> filters = const [],
+  }) {
+    return _cachedFetch(
+      'collectionCount:$handle:${filters.join('|')}',
+      () async {
+        const String query = r'''
+          query countCollectionProducts(
+            $handle: String!
+            $after: String
+            $filters: [ProductFilter!]
+          ) {
+            collection(handle: $handle) {
+              products(first: 250, after: $after, filters: $filters) {
+                nodes { id }
+                pageInfo { hasNextPage endCursor }
+              }
+            }
+          }
+        ''';
+        final decodedFilters = [
+          for (final f in filters) ?_tryDecodeMap(f),
+        ];
+        int total = 0;
+        String? after;
+        // Up to 20 pages (5,000 products); the store's largest collections
+        // are well under that.
+        for (int page = 0; page < 20; page++) {
+          final res = await ShopifyGraphQL.post(
+            query,
+            variables: {
+              'handle': handle,
+              'after': after,
+              'filters': decodedFilters,
+            },
+          );
+          if (res.hasErrors || res.data == null) return null;
+          final products = res.data!['collection']?['products'] as Map?;
+          if (products == null) return null;
+          total += ((products['nodes'] as List?) ?? const []).length;
+          final pageInfo = products['pageInfo'] as Map?;
+          if (pageInfo?['hasNextPage'] != true) return total;
+          after = pageInfo?['endCursor'] as String?;
+        }
+        return total;
+      },
+    );
+  }
+
+  /// Shopify's result count for a product search (capped by Shopify at
+  /// 1,000). Null on failure.
+  Future<int?> countSearchResults(
+    String query, {
+    List<String> filters = const [],
+  }) {
+    return _cachedFetch(
+      'searchCount:${query.toLowerCase()}:${filters.join('|')}',
+      () async {
+        const String gql = r'''
+          query countSearch($query: String!, $productFilters: [ProductFilter!]) {
+            search(
+              query: $query
+              first: 1
+              types: [PRODUCT]
+              prefix: LAST
+              unavailableProducts: SHOW
+              productFilters: $productFilters
+            ) { totalCount }
+          }
+        ''';
+        final res = await ShopifyGraphQL.post(
+          gql,
+          variables: {
+            'query': query,
+            'productFilters': [
+              for (final f in filters) ?_tryDecodeMap(f),
+            ],
+          },
+        );
+        if (res.hasErrors || res.data == null) return null;
+        return (res.data!['search']?['totalCount'] as num?)?.toInt();
+      },
+    );
+  }
+
+  /// "Popular links" on the search screen: the items of the Shopify menu
+  /// the website's search uses ([ShopifyConstants.searchPopularMenuHandle]),
+  /// as (title, collection handle). Items that aren't collections are left
+  /// out.
+  Future<List<({String title, String handle})>> getSearchPopularLinks() =>
+      _cachedFetch('searchPopularLinks', () async {
+        const String query = r'''
+          query popularLinks($handle: String!) {
+            menu(handle: $handle) {
+              items { title url resource { ... on Collection { handle } } }
+            }
+          }
+        ''';
+        final res = await ShopifyGraphQL.post(
+          query,
+          variables: {'handle': ShopifyConstants.searchPopularMenuHandle},
+        );
+        if (res.hasErrors || res.data == null) return const [];
+        return [
+          for (final item in (res.data!['menu']?['items'] as List?) ?? const [])
+            if (_menuItemCollectionHandle(item as Map) case final handle?)
+              (title: (item['title'] as String? ?? '').trim(), handle: handle),
+        ];
+      });
+
+  /// Stock left per variant id, for the product page's "Hurry, only N
+  /// items left" note. Needs the `unauthenticated_read_product_inventory`
+  /// scope on the app's Storefront API access; without it Shopify denies
+  /// the field and this returns an empty map, so the note just doesn't show.
+  Future<Map<String, int>> getVariantQuantities(String productId) =>
+      _cachedFetch('variantQuantities:$productId', () async {
+        const String query = r'''
+          query variantQuantities($id: ID!) {
+            node(id: $id) {
+              ... on Product {
+                variants(first: 100) { nodes { id quantityAvailable } }
+              }
+            }
+          }
+        ''';
+        try {
+          final res =
+              await ShopifyGraphQL.post(query, variables: {'id': productId});
+          if (res.hasErrors || res.data == null) {
+            _log('getVariantQuantities: unavailable (needs inventory scope?)');
+            return const <String, int>{};
+          }
+          return {
+            for (final v in (res.data!['node']?['variants']?['nodes'] as List?) ??
+                const [])
+              if ((v as Map)['quantityAvailable'] is num)
+                v['id'] as String: (v['quantityAvailable'] as num).toInt(),
+          };
+        } catch (e) {
+          _log('getVariantQuantities EXCEPTION: $e');
+          return const <String, int>{};
+        }
+      });
+
+  /// Products by handle, in the order given; missing or unpublished ones
+  /// are skipped. Used for the search screen's trending list.
+  Future<List<ShopifyProduct>> getProductsByHandles(List<String> handles) {
+    if (handles.isEmpty) return Future.value(const []);
+    return _cachedFetch('productsByHandles:${handles.join(',')}', () async {
+      // One aliased productByHandle per handle: the Storefront `products`
+      // search doesn't filter by handle.
+      final buffer = StringBuffer('query productsByHandles {\n');
+      for (int i = 0; i < handles.length; i++) {
+        final safeHandle = handles[i].replaceAll('"', r'\"');
+        buffer.write('''
+  p$i: productByHandle(handle: "$safeHandle") {
+    id title handle
+    priceRange { minVariantPrice { amount currencyCode } }
+    compareAtPriceRange { minVariantPrice { amount currencyCode } }
+    images(first: 4) { edges { node { url(transform: {maxWidth: 800}) altText } } }
+    options { name values optionValues { name swatch { color } } }
+    variants(first: 10) {
+      edges { node { id title availableForSale selectedOptions { name value } } }
+    }
+  }
+''');
+      }
+      buffer.write('}');
+      try {
+        final res = await ShopifyGraphQL.post(buffer.toString());
+        if (res.data == null) return const <ShopifyProduct>[];
+        return [
+          for (int i = 0; i < handles.length; i++)
+            ?(res.data!['p$i'] is Map
+                ? ShopifyProduct.fromJson(
+                    Map<String, dynamic>.from(res.data!['p$i'] as Map))
+                : null),
+        ];
+      } catch (e) {
+        _log('getProductsByHandles EXCEPTION: $e');
+        return const <ShopifyProduct>[];
+      }
+    });
+  }
+
+  static String? _menuItemCollectionHandle(Map item) {
+    final handle = item['resource']?['handle'] as String?;
+    if (handle != null && handle.isNotEmpty) return handle;
+    final match = RegExp(r'/collections/([^/?#]+)')
+        .firstMatch(item['url'] as String? ?? '');
+    return match?.group(1);
+  }
+
+  static Map<String, dynamic>? _tryDecodeMap(String raw) {
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<PaginatedProductsResponse> getProductsByCollectionPaginated(
     String handle, {
     int first = 24,
@@ -691,6 +897,7 @@ for (final e in rawVariantEdges) {
                 key value
                 reference {
                   ... on MediaImage { image { url(transform: {maxWidth: 1440}) } }
+                  ... on Collection { handle title }
                 }
               }
             }
@@ -1202,6 +1409,7 @@ for (final e in rawVariantEdges) {
             node {
               id
               image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) width height } } } }
+              collection: field(key: "collection") { reference { ... on Collection { handle title } } }
               link: field(key: "link") { value }
               sort_order: field(key: "sort_order") { value }
             }
@@ -1279,6 +1487,7 @@ for (final e in rawVariantEdges) {
               image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) width height } } } }
               label: field(key: "label") { value }
               button_label: field(key: "button_label") { value }
+              collection: field(key: "collection") { reference { ... on Collection { handle title } } }
               collection_handle: field(key: "collection_handle") { value }
               sort_order: field(key: "sort_order") { value }
             }
@@ -1329,6 +1538,7 @@ for (final e in rawVariantEdges) {
               image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) width height } } } }
               label: field(key: "label") { value }
               button_label: field(key: "button_label") { value }
+              collection: field(key: "collection") { reference { ... on Collection { handle title } } }
               link: field(key: "link") { value }
               sort_order: field(key: "sort_order") { value }
             }
@@ -1423,6 +1633,7 @@ for (final e in rawVariantEdges) {
               id
               image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
               label: field(key: "label") { value }
+              collection: field(key: "collection") { reference { ... on Collection { handle title } } }
               collection_handle: field(key: "collection_handle") { value }
               sort_order: field(key: "sort_order") { value }
             }
@@ -1461,6 +1672,7 @@ for (final e in rawVariantEdges) {
               id
               image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
               label: field(key: "label") { value }
+              collection: field(key: "collection") { reference { ... on Collection { handle title } } }
               collection_handle: field(key: "collection_handle") { value }
               section: field(key: "section") { value }
               sort_order: field(key: "sort_order") { value }
@@ -1499,9 +1711,7 @@ for (final e in rawVariantEdges) {
             node {
               id
               label: field(key: "label") { value }
-              collection: field(key: "collection") {
-                reference { ... on Collection { handle } }
-              }
+              collection: field(key: "collection") { reference { ... on Collection { handle title } } }
               collection_handle: field(key: "collection_handle") { value }
               sort_order: field(key: "sort_order") { value }
             }
@@ -1539,6 +1749,7 @@ for (final e in rawVariantEdges) {
         metaobjects(type: "product_page_banner", first: 100) {
           edges {
             node {
+              collection: field(key: "collection") { reference { ... on Collection { handle title } } }
               collection_handle: field(key: "collection_handle") { value }
               image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) } } } }
             }
@@ -1556,8 +1767,12 @@ for (final e in rawVariantEdges) {
       final Map<String, String> banners = {};
       for (final e in edges) {
         final node = e['node'] as Map<String, dynamic>;
+        // The picked "Collection" wins; the old free-text handle is the
+        // fallback for entries that haven't picked one.
         final String handle = _normalizeHandle(
-            node['collection_handle']?['value'] as String? ?? '');
+            node['collection']?['reference']?['handle'] as String? ??
+                node['collection_handle']?['value'] as String? ??
+                '');
         final String? url =
             node['image']?['reference']?['image']?['url'] as String?;
         if (handle.isNotEmpty && url != null) banners[handle] = url;
@@ -1702,7 +1917,10 @@ for (final e in rawVariantEdges) {
               for (final group in tab.value.entries)
                 ShopMenuCategory(
                   title: group.key,
-                  collectionHandle: '',
+                  // Opened by the group's "ALL ..." row; '' = no row.
+                  collectionHandle: ShopifyConstants
+                          .exploreGroupAllHandles[group.key.toLowerCase()] ??
+                      '',
                   fits: group.value,
                 ),
             ],

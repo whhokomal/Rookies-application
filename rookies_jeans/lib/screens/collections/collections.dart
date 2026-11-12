@@ -19,7 +19,6 @@ import 'package:rookies_jeans/widgets/banner_page_dots.dart';
 import 'package:rookies_jeans/widgets/price_text.dart';
 import 'package:rookies_jeans/widgets/sticker_chip.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:rookies_jeans/widgets/product_variant_rows.dart';
 
 /// Backdrop for product cutouts, which are shot on a light grey. Fixed in
 /// both themes so the photos never sit on a mismatched box.
@@ -588,9 +587,8 @@ class CollectionsShowcasePage extends StatefulWidget {
 }
 
 class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
-  /// Looks shown at first, then how many more each "Show more" tap adds.
+  /// Looks shown until "View more" shows the rest.
   static const int _kLooksInitial = 6;
-  static const int _kLooksStep = 6;
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _looksKey = GlobalKey();
@@ -716,9 +714,10 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
   /// Page heading for a collection opened from a banner: the banner's
   /// title, else the handle ("aw26" -> "AW26").
   String _bannerTitle(HomeBanner banner, String handle) =>
-      banner.title.trim().isNotEmpty
+      banner.collectionTitle ??
+      (banner.title.trim().isNotEmpty
           ? banner.title
-          : handle.replaceAll('-', ' ').toUpperCase();
+          : handle.replaceAll('-', ' ').toUpperCase());
 
   void _openBanner(HomeBanner banner) {
     final String? url = banner.link;
@@ -1168,9 +1167,15 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ...rows,
-          if (looks.length > _looksShown)
+          // VIEW MORE shows every look; once all are out, VIEW LESS goes
+          // back to the first few.
+          if (looks.length > _kLooksInitial)
             GestureDetector(
-              onTap: () => setState(() => _looksShown += _kLooksStep),
+              onTap: () => setState(() {
+                _looksShown = looks.length > _looksShown
+                    ? looks.length
+                    : _kLooksInitial;
+              }),
               child: Container(
                 height: 50,
                 alignment: Alignment.center,
@@ -1179,7 +1184,7 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'SHOW MORE',
+                  looks.length > _looksShown ? 'VIEW MORE' : 'VIEW LESS',
                   style: TextStyle(
                     fontFamily: AppFonts.number,
                     fontSize: 13,
@@ -1256,8 +1261,6 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
                     color: AppColors.primary,
                     amountFontFamily: AppFonts.body,
                   ),
-                  const SizedBox(height: 6),
-                  ProductVariantRows(product: product),
                 ],
               ),
             ),
@@ -1337,7 +1340,8 @@ class _CollectionsShowcasePageState extends State<CollectionsShowcasePage> {
     return GestureDetector(
       onTap: () => _openCollection(
         tile.collectionHandle,
-        label.isNotEmpty ? label : tile.collectionHandle,
+        tile.collectionTitle ??
+            (label.isNotEmpty ? label : tile.collectionHandle),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(4),

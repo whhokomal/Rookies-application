@@ -23,11 +23,9 @@ import 'package:rookies_jeans/widgets/rating_badge.dart';
 import 'package:rookies_jeans/widgets/product_swatch_row.dart';
 import 'package:rookies_jeans/widgets/product_size_row.dart';
 import 'package:rookies_jeans/widgets/wishlist_heart_button.dart';
-import 'package:rookies_jeans/widgets/announcement_ticker.dart';
 import 'package:rookies_jeans/widgets/banner_grain.dart';
 import 'package:rookies_jeans/widgets/banner_page_dots.dart';
 import 'package:rookies_jeans/widgets/sticker_chip.dart';
-import 'package:rookies_jeans/widgets/trust_strip.dart';
 
 typedef R = Responsive;
 
@@ -182,6 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
         label: p.label,
         buttonLabel: p.buttonLabel ?? 'Shop ${p.label}',
         collectionHandle: p.collectionHandle,
+        collectionTitle: p.collectionTitle,
         aspectRatio: ratioByLabel[e.key],
       );
     }).toList();
@@ -226,6 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
             imageUrl: t.imageUrl,
             handle: t.collectionHandle,
             label: t.label,
+            collectionTitle: t.collectionTitle,
           ),
         )
         .toList();
@@ -250,7 +250,10 @@ class _HomeScreenState extends State<HomeScreen> {
               buttonLabel: block.buttonLabel,
               height: _promoBlockHeight(context, aspectRatio: block.aspectRatio),
               // The handle field often holds a full collection URL.
-              onTap: () => _openLink(block.collectionHandle, title: block.label),
+              onTap: () => _openLink(
+                block.collectionHandle,
+                title: block.collectionTitle ?? block.label,
+              ),
             ),
           ),
         )
@@ -279,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: b.aspectRatio != null
                 ? screenWidth / b.aspectRatio!
                 : _promoBlockHeight(context),
-            onTap: () => _openLink(b.link, title: b.label),
+            onTap: () => _openLink(b.link, title: b.collectionTitle ?? b.label),
           ),
         ),
       ),
@@ -590,14 +593,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           SliverToBoxAdapter(child: _shopTheLookSection()),
                         ..._featureBannerSlivers(),
                         SliverToBoxAdapter(child: _shopByOccasionsSection()),
-                        // Above Explore Collections, whose grid scrolls on
-                        // without end.
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: EdgeInsets.all(R.of(context).dp(16)),
-                            child: const TrustStrip(),
-                          ),
-                        ),
                         SliverToBoxAdapter(child: _exploreCollectionsSection()),
                         const SliverToBoxAdapter(
                           child: SizedBox(height: _kBottomNavClearance),
@@ -614,6 +609,15 @@ class _HomeScreenState extends State<HomeScreen> {
   double _fullScreenBannerHeight(BuildContext context) {
     final mq = MediaQuery.of(context);
     return mq.size.height - mq.padding.top - mq.padding.bottom;
+  }
+
+  /// The hero runs from under the status bar to the very bottom of the
+  /// screen. The page isn't inset at the bottom (the nav bar floats over
+  /// it), so leaving out the gesture-bar inset let the next section peek
+  /// in below the banner.
+  double _heroHeight(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    return mq.size.height - mq.padding.top;
   }
 
   /// Promo height follows the screen width and the image's own shape
@@ -680,7 +684,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _heroSection() {
     return SizedBox(
-      height: _fullScreenBannerHeight(context),
+      height: _heroHeight(context),
       width: double.infinity,
       child: Stack(
         children: [
@@ -689,9 +693,7 @@ class _HomeScreenState extends State<HomeScreen> {
             top: 0,
             left: 0,
             right: 0,
-            child: Column(
-              children: [const AnnouncementTicker(), _topBar()],
-            ),
+            child: _topBar(),
           ),
         ],
       ),
@@ -744,12 +746,17 @@ class _HomeScreenState extends State<HomeScreen> {
       return _HeroBannerPager(
         imageUrls: [for (final b in banners) b.imageUrl!],
         banners: banners,
-        screenHeight: _fullScreenBannerHeight(context),
+        screenHeight: _heroHeight(context),
         scrollController: _scrollController,
         overlays: scrims,
         onTap: (i) {
           final link = banners[i].link;
-          if (link != null) _openLink(link, title: banners[i].title);
+          if (link != null) {
+            _openLink(
+              link,
+              title: banners[i].collectionTitle ?? banners[i].title,
+            );
+          }
         },
       );
     }
@@ -894,7 +901,11 @@ class _HomeScreenState extends State<HomeScreen> {
             width: cardWidth,
             height: cardHeight,
             onTap: () =>
-                _openCollectionByHandle(cat.collectionHandle, label: cat.label),
+                _openCollectionByHandle(
+                  cat.collectionHandle,
+                  title: cat.collectionTitle,
+                  label: cat.collectionTitle == null ? cat.label : null,
+                ),
             r: r,
           );
         },
@@ -1260,7 +1271,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _occasionCard(_OccasionTile tile, double width, double height, R r) {
     return GestureDetector(
-      onTap: () => _openCollectionByHandle(tile.handle, label: tile.label),
+      onTap: () => _openCollectionByHandle(
+        tile.handle,
+        title: tile.collectionTitle,
+        label: tile.collectionTitle == null ? tile.label : null,
+      ),
       child: SizedBox(
         width: width,
         height: height,
@@ -1762,12 +1777,14 @@ class _HeroBannerPagerState extends State<_HeroBannerPager> {
   Widget build(BuildContext context) {
     final count = _count;
     final r = R.of(context);
-    // Spare photo below the banner, so its extra travel never leaves a gap
-    // before the banner has scrolled away.
-    final photoHeight = widget.screenHeight * (1 + _extraPhotoSpeed);
+    // The photo is shown at full width (never cropped at the sides), sitting
+    // at the bottom of the banner; the space above it, and any left below as
+    // it drifts up while scrolling, is black like the photos' own edges.
+    final photoHeight = widget.screenHeight;
     return Stack(
       fit: StackFit.expand,
       children: [
+        const ColoredBox(color: Colors.black),
         Positioned(
           top: 0,
           left: 0,
@@ -1796,7 +1813,8 @@ class _HeroBannerPagerState extends State<_HeroBannerPager> {
                     imageUrl: widget.imageUrls[index],
                     httpHeaders: ShopifyConstants.imageHeaders,
                     fadeInDuration: const Duration(milliseconds: 150),
-                    alignment: Alignment.topCenter,
+                    fit: BoxFit.fitWidth,
+                    alignment: Alignment.bottomCenter,
                     placeholder: (_, _) =>
                         const ColoredBox(color: Colors.black),
                     errorWidget: (_, _, _) =>
@@ -2474,11 +2492,15 @@ class _OccasionTile {
   final String? imageUrl;
   final String handle;
   final String? label;
+
+  /// Title of the picked collection, shown on the page it opens.
+  final String? collectionTitle;
   const _OccasionTile({
     required this.imageAsset,
     this.imageUrl,
     required this.handle,
     this.label,
+    this.collectionTitle,
   });
 }
 
@@ -2510,6 +2532,9 @@ class _PromoBlockData {
   final String buttonLabel;
   final String collectionHandle;
 
+  /// Title of the picked collection, shown on the page it opens.
+  final String? collectionTitle;
+
   /// Width / height of the first image whose size is known.
   final double? aspectRatio;
   const _PromoBlockData({
@@ -2518,6 +2543,7 @@ class _PromoBlockData {
     required this.label,
     required this.buttonLabel,
     required this.collectionHandle,
+    this.collectionTitle,
     this.aspectRatio,
   });
 }

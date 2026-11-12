@@ -76,12 +76,19 @@ class _ProductsPageState extends State<ProductsPage> {
   static const double _kMainSpacing = 14.0;
   static const double _kCompactSpacing = 4.0;
   static const double _kAspect = 0.52;
-  static const double _kToolbarHeight = 48.0;
+  static const double _kToolbarHeight = 56.0;
   static const double _kTitleLineHeight = 1.3;
 
   /// Products per row picked from the toolbar: 1 = large cards,
   /// 2 = standard cards, 3 = compact image-only tiles.
   int _gridMode = 2;
+
+  /// Products matching the current filters, shown as "308 PRODUCTS"; null
+  /// until counted (or if counting failed).
+  int? _totalCount;
+
+  /// Filters [_totalCount] was counted for, so a re-sort doesn't recount.
+  String? _countedFor;
 
   bool get _isCompactGrid => _gridMode == 3;
 
@@ -298,7 +305,14 @@ class _ProductsPageState extends State<ProductsPage> {
   List<String> get _flatSelectedInputs =>
       _selectedFilterInputs.values.expand((s) => s).toList();
 
-  List<ProductSortOption> get _availableSortOptions => ProductSortOption.values;
+  /// Search can't sort by best selling (Shopify's search only sorts by
+  /// relevance or price), so that option is left out there.
+  List<ProductSortOption> get _availableSortOptions => [
+        for (final o in ProductSortOption.values)
+          if (!_isSearch || o != ProductSortOption.bestSelling) o,
+      ];
+
+  String _sortLabel(ProductSortOption option) => option.label;
 
   bool get _isSearch => widget.searchQuery != null;
 
@@ -319,11 +333,13 @@ class _ProductsPageState extends State<ProductsPage> {
         _products.sort((a, b) => b.title.compareTo(a.title));
         break;
       case ProductSortOption.newest:
+      case ProductSortOption.oldest:
+        final newestFirst = _sortOption == ProductSortOption.newest;
         _products.sort((a, b) {
           final aDate = a.createdAt;
           final bDate = b.createdAt;
           if (aDate == null || bDate == null) return 0;
-          return bDate.compareTo(aDate);
+          return newestFirst ? bDate.compareTo(aDate) : aDate.compareTo(bDate);
         });
         break;
       default:
@@ -384,6 +400,7 @@ class _ProductsPageState extends State<ProductsPage> {
       _startAutoScrollTimer();
 
       if (_applyInitialFitFilterIfNeeded()) return;
+      _loadTotalCount();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -419,6 +436,27 @@ class _ProductsPageState extends State<ProductsPage> {
     return false;
   }
 
+  /// Counts the products for the current filters (not re-run for a sort).
+  Future<void> _loadTotalCount() async {
+    final key = _flatSelectedInputs.join('|');
+    if (_countedFor == key) return;
+    _countedFor = key;
+    setState(() => _totalCount = null);
+    final service = ShopifyStorefrontService.instance;
+    final count = _isSearch
+        ? await service.countSearchResults(
+            widget.searchQuery!.trim(),
+            filters: _flatSelectedInputs,
+          )
+        : await service.countCollectionProducts(
+            widget.collection!.handle,
+            filters: _flatSelectedInputs,
+          );
+    // Ignore a stale answer if the filters changed meanwhile.
+    if (!mounted || _countedFor != key) return;
+    setState(() => _totalCount = count);
+  }
+
   Future<void> _loadMoreProducts() async {
     if (_isLoadingMore || !_hasNextPage) return;
 
@@ -451,6 +489,7 @@ class _ProductsPageState extends State<ProductsPage> {
   Future<void> _refreshProducts() async {
     _autoScrollTimer?.cancel();
     ShopifyStorefrontService.instance.clearCache();
+    _countedFor = null;
     await _fetchInitialProducts();
   }
 
@@ -487,6 +526,7 @@ class _ProductsPageState extends State<ProductsPage> {
               slivers: [
                 // Top banner replaced by the app bar above.
                 // _bannerWithToolbar(context),
+                SliverToBoxAdapter(child: _breadcrumbRow(context)),
                 _pinnedToolbar(),
                 if (_isLoading)
                   _shimmerSliverGrid()
@@ -539,6 +579,66 @@ class _ProductsPageState extends State<ProductsPage> {
     );
   }
 
+  /// "HOME > SHIRTS" on the left and "308 PRODUCTS" on the right, above
+  /// the toolbar, like the website. HOME goes to the home tab.
+  Widget _breadcrumbRow(BuildContext context) {
+    final style = TextStyle(
+      fontFamily: AppFonts.accent,
+      fontSize: 12,
+      letterSpacing: 0.8,
+      color: AppColors.secondaryText,
+    );
+    final current = _isSearch
+        ? 'SEARCH'
+        : (widget.collection!.label.isNotEmpty
+                ? widget.collection!.label
+                : widget.collection!.title)
+            .toUpperCase();
+    final count = _totalCount;
+    final countText = count == null
+        ? ''
+        : _isSearch
+            ? '${count >= 1000 ? '1000+' : count} ${count == 1 ? 'RESULT' : 'RESULTS'}'
+            : '$count ${count == 1 ? 'PRODUCT' : 'PRODUCTS'}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () {
+              widget.onBackToDashboard?.call();
+              context.go('/home');
+            },
+            child: Text('HOME', style: style),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Icon(
+              Icons.chevron_right_rounded,
+              size: 16,
+              color: AppColors.secondaryText,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              current,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (countText.isNotEmpty) ...[
+            const SizedBox(width: 12),
+            Text(countText, style: style),
+          ],
+        ],
+      ),
+    );
+  }
+
   void _goBack(BuildContext context) {
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
@@ -568,48 +668,48 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   Widget _listingToolbar(BuildContext context) {
-    final divider = SizedBox(
-      height: 20,
-      child: VerticalDivider(width: 1, thickness: 1, color: AppColors.border),
-    );
-    final labelStyle = TextStyle(
-      fontFamily: AppFonts.body,
-      fontSize: 11,
-      letterSpacing: 0.6,
-      color: AppColors.primary,
-    );
-
-    // View modes on the left; FILTER | SORT grouped on the right.
+    // Outlined FILTER and SORT buttons sharing the width, then a boxed
+    // view-mode toggle on the right.
     return Container(
       height: _kToolbarHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: AppColors.bg,
-        border: Border(bottom: BorderSide(color: AppColors.border, width: 0.8)),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      color: AppColors.bg,
       child: Row(
         children: [
-          _gridModeButton(1, Icons.view_agenda_sharp),
-          const SizedBox(width: 6),
-          _gridModeButton(2, Icons.grid_view_sharp),
-          const SizedBox(width: 6),
-          _gridModeButton(3, Icons.apps_sharp),
-          const Spacer(),
-          _toolbarAction(
-            icon: Icons.filter_alt_outlined,
-            label: _activeFilterCount > 0
-                ? 'FILTER ($_activeFilterCount)'
-                : 'FILTER',
-            style: labelStyle,
-            onTap: () => _openFilterSheet(context),
+          Expanded(
+            child: _toolbarAction(
+              icon: Icons.filter_alt_outlined,
+              label: _activeFilterCount > 0
+                  ? 'FILTER ($_activeFilterCount)'
+                  : 'FILTER',
+              active: _activeFilterCount > 0,
+              onTap: () => _openFilterSheet(context),
+            ),
           ),
-          divider,
-          _toolbarAction(
-            icon: Icons.swap_vert_rounded,
-            label: 'SORT',
-            style: labelStyle,
-            active: _sortOption != ProductSortOption.defaultSort,
-            onTap: () => _openSortSheet(context),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _toolbarAction(
+              icon: Icons.swap_vert_rounded,
+              label: 'SORT',
+              active: _sortOption != ProductSortOption.defaultSort,
+              onTap: () => _openSortSheet(context),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            height: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.border, width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _gridModeButton(1, Icons.view_agenda_sharp),
+                _gridModeButton(2, Icons.grid_view_sharp),
+                // _gridModeButton(3, Icons.apps_sharp),
+              ],
+            ),
           ),
         ],
       ),
@@ -619,24 +719,26 @@ class _ProductsPageState extends State<ProductsPage> {
   Widget _toolbarAction({
     required IconData icon,
     required String label,
-    required TextStyle style,
     required VoidCallback onTap,
     // Shows a dot on the icon, e.g. when a non-default sort is applied.
     bool active = false,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: SizedBox(
-        height: double.infinity,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          height: double.infinity,
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.primary, width: 1),
+          ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Icon(icon, size: 18, color: AppColors.primary),
+                  Icon(icon, size: 17, color: AppColors.primary),
                   if (active)
                     Positioned(
                       top: -2,
@@ -653,7 +755,20 @@ class _ProductsPageState extends State<ProductsPage> {
                 ],
               ),
               const SizedBox(width: 6),
-              Text(label, style: style),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppFonts.accent,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -666,11 +781,13 @@ class _ProductsPageState extends State<ProductsPage> {
     return InkWell(
       onTap: isActive ? null : () => setState(() => _gridMode = mode),
       child: Padding(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(horizontal: 5),
         child: Icon(
           icon,
-          size: 22,
-          color: isActive ? AppColors.primary : AppColors.secondaryText.withValues(alpha: 0.45),
+          size: 20,
+          color: isActive
+              ? AppColors.primary
+              : AppColors.secondaryText.withValues(alpha: 0.45),
         ),
       ),
     );
@@ -749,7 +866,7 @@ class _ProductsPageState extends State<ProductsPage> {
                       final isSelected = option == _sortOption;
                       return ListTile(
                         title: Text(
-                          option.label,
+                          _sortLabel(option),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight:
@@ -1913,12 +2030,16 @@ class _PriceOption {
 }
 
 enum ProductSortOption {
-  defaultSort('Default', 'COLLECTION_DEFAULT', false),
-  newest('Newest', 'CREATED', true),
-  priceLowToHigh('Price: Low to High', 'PRICE', false),
-  priceHighToLow('Price: High to Low', 'PRICE', true),
-  titleAZ('Alphabetically: A-Z', 'TITLE', false),
-  titleZA('Alphabetically: Z-A', 'TITLE', true);
+  // Same names and order as the website's sort menu.
+  defaultSort('Featured', 'COLLECTION_DEFAULT', false),
+  relevance('Most relevant', 'RELEVANCE', false),
+  bestSelling('Best selling', 'BEST_SELLING', false),
+  titleAZ('Alphabetically, A-Z', 'TITLE', false),
+  titleZA('Alphabetically, Z-A', 'TITLE', true),
+  priceLowToHigh('Price, low to high', 'PRICE', false),
+  priceHighToLow('Price, high to low', 'PRICE', true),
+  oldest('Date, old to new', 'CREATED', false),
+  newest('Date, new to old', 'CREATED', true);
 
   const ProductSortOption(this.label, this.shopifyKey, this.reverse);
 

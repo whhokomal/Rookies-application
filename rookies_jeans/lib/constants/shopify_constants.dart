@@ -70,11 +70,55 @@ class ShopifyConstants {
   static const String hotDealsHandle    = 'hot-deals';
   static const String trendingNowHandle = 'trending-now';
 
+  /// Shopify menu (Online Store → Navigation) whose items are the search
+  /// screen's "Popular links", same as the website's search drawer.
+  static const String searchPopularMenuHandle = 'shop-menu';
+
+  /// Phrases typed out one after another after "Search for" in the empty
+  /// search box, as on the website (theme → Search → Rotating phrases).
+  static const List<String> searchPlaceholderPhrases = [
+    'Jeans',
+    'Shirts',
+    'Cargos',
+    'Tshirts',
+    'Polo Tees',
+    'Jackets',
+    'Baggy Jeans',
+    'Bootcut Jeans',
+  ];
+
+  /// The search screen's "Trending products", in order: the same products
+  /// the website's search drawer shows (theme → Search → Product
+  /// suggestion). The app can't read theme settings, so change this list
+  /// when the website's changes.
+  static const List<String> searchTrendingHandles = [
+    'beige-full-sleeve-linen-blend-stripe-shirt-1476',
+    'beige-half-sleeves-oversize-tee-1336',
+    'black-100-cotton-full-sleeve-oversized-solid-shirt-1644',
+    'black-100-cotton-full-sleeve-oversized-solid-shirt-1646',
+    'black-balloon-fit-cargo-pants-1536',
+    'blue-full-sleeve-check-shirt-1283',
+    'blue-full-sleeve-linen-blend-check-shirt-1558',
+  ];
+
   /// Shopify navigation menus (Online Store → Menus) that drive Explore
   /// Categories and the Collections tab, in display order. Each item links
   /// to a collection; its sub-items are its nested items, or else the menu
   /// handled like that collection (e.g. "shirts", "tshirts-1").
   static const List<String> exploreMenuHandles = ['top-wear', 'bottom-wear'];
+
+  /// Explore Categories groups (the "Group" field of "Shop By Category
+  /// Image" entries, lower case) that start with an "ALL ..." row, and
+  /// the collection it opens. Groups not listed (Knitwear & Sweats, Cargos)
+  /// get no such row.
+  static const Map<String, String> exploreGroupAllHandles = {
+    'shirts': 'shirts',
+    't-shirts': 'tshirts',
+    'jackets': 'jacket',
+    'jeans': 'jeans',
+    'chinos': 'chinos',
+    'shorts': 'shorts',
+  };
 
   /// Offline fallback for [exploreMenuHandles] — only used when those menus
   /// can't be loaded. Same shape: tab → group → card, every card a Shopify
@@ -125,8 +169,8 @@ class ShopifyConstants {
           ],
         },
         {
-          'title': 'Knits & Sweats',
-          'handle': 'flatknit-sweaters',
+          'title': 'Knitwear & Sweats',
+          'handle': '',
           'items': [
             {'title': 'Sweatshirts', 'handle': 'sweatshirts'},
             {'title': 'Hoodies', 'handle': 'hoodies'},
@@ -160,18 +204,23 @@ class ShopifyConstants {
           ],
         },
         {
-          'title': 'Cargos & Pants',
-          'handle': 'cargos',
+          'title': 'Cargos',
+          'handle': '',
           'items': [
             {'title': 'Cargo Pants', 'handle': 'cargo-pants'},
             {'title': 'Balloon Fit Cargos', 'handle': 'balloon-fit-cargos'},
             {'title': 'Utility Pants', 'handle': 'utility-pants'},
             {'title': 'Linen Cargos', 'handle': 'linen-cargos'},
-            {'title': 'Denim Cargo', 'handle': 'denim-cargo'},
-            {'title': 'Chinos', 'handle': 'chinos'},
+          ],
+        },
+        {
+          'title': 'Chinos',
+          'handle': 'chinos',
+          'items': [
+            // No collection of its own yet; opens Chinos like the website.
+            {'title': 'Corduroy Trousers', 'handle': 'chinos'},
             {'title': 'Korean Fit Trousers', 'handle': 'korean-fit-trousers'},
             {'title': 'Linen Trousers', 'handle': 'linen-trousers'},
-            {'title': 'Casual Pants', 'handle': 'casual-pants'},
           ],
         },
         {

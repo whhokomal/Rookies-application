@@ -125,6 +125,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   /// Judge.me reviews for the shown product; null until loaded.
   ProductReviews? _reviews;
+
+  /// Stock left per variant id; empty until loaded, or when the app's
+  /// Storefront access can't read inventory.
+  Map<String, int> _variantQuantities = const {};
+
+  /// At or below this many left, "Hurry, only N items left in stock!"
+  /// replaces "In Stock" (the website's low-inventory threshold).
+  static const int _kLowStockThreshold = 8;
   final GlobalKey _reviewsKey = GlobalKey();
 
   // Kept alive across taps (and across re-fetches for the same product) so
@@ -312,6 +320,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         _isLoading = false;
       });
       RecentlyViewedService.instance.record(_asListProduct(product));
+      ShopifyStorefrontService.instance
+          .getVariantQuantities(product.id)
+          .then((quantities) {
+        if (mounted && _product?.id == product.id) {
+          setState(() => _variantQuantities = quantities);
+        }
+      });
 
       debugPrint('=== PRODUCT DEBUG (${product.handle}) ===');
       debugPrint('Options: ${product.options.length}');
@@ -1568,6 +1583,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final inStock = _needsSize
         ? _anySizeInStock
         : _selectedVariant?.availableForSale ?? false;
+    final left = _selectedVariant == null
+        ? null
+        : _variantQuantities[_selectedVariant!.id];
+    if (inStock && left != null && left > 0 && left <= _kLowStockThreshold) {
+      return _lowStockNotice(left);
+    }
     return Row(
       children: [
         Container(
@@ -1588,6 +1609,48 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           ),
         ),
       ],
+    );
+  }
+
+  /// The website's low-stock box: a green dot on a pale green band.
+  Widget _lowStockNotice(int left) {
+    const green = Color(0xFF10A71F);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      color: const Color(0x2110A71F),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: green,
+              boxShadow: [
+                BoxShadow(
+                  color: green.withValues(alpha: 0.3),
+                  spreadRadius: 3,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              left == 1
+                  ? 'Hurry, only 1 item left in stock!'
+                  : 'Hurry, only $left items left in stock!',
+              style: TextStyle(
+                fontFamily: AppFonts.body,
+                fontSize: _s(13),
+                fontWeight: FontWeight.w500,
+                color: green,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

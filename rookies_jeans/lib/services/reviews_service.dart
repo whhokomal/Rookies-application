@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rookies_jeans/constants/shopify_constants.dart';
 
 /// One Judge.me review, as shown in the product page's reviews section.
 class ProductReview {
+  /// Judge.me's id for the review, used to vote on it.
+  final String uuid;
   final int rating;
   final String title;
   final String body;
@@ -13,7 +16,12 @@ class ProductReview {
   final DateTime? createdAt;
   final List<String> pictureUrls;
 
+  /// "Helpful?" votes on Judge.me.
+  final int thumbUp;
+  final int thumbDown;
+
   const ProductReview({
+    this.uuid = '',
     required this.rating,
     required this.title,
     required this.body,
@@ -21,9 +29,12 @@ class ProductReview {
     required this.verifiedBuyer,
     this.createdAt,
     this.pictureUrls = const [],
+    this.thumbUp = 0,
+    this.thumbDown = 0,
   });
 
   factory ProductReview.fromJson(Map<String, dynamic> json) => ProductReview(
+        uuid: (json['uuid'] as String? ?? '').trim(),
         rating: (json['rating'] as num?)?.toInt() ?? 0,
         title: (json['title'] as String? ?? '').trim(),
         body: _stripHtml(json['body_html'] as String? ?? ''),
@@ -37,6 +48,8 @@ class ProductReview {
             else if (p is Map && p['original'] is String)
               p['original'] as String,
         ],
+        thumbUp: (json['thumb_up'] as num?)?.toInt() ?? 0,
+        thumbDown: (json['thumb_down'] as num?)?.toInt() ?? 0,
       );
 
   static String _stripHtml(String html) => html
@@ -50,6 +63,42 @@ class ProductReview {
       .replaceAll('&nbsp;', ' ')
       .replaceAll(RegExp(r'\n{2,}'), '\n')
       .trim();
+}
+
+/// This phone's "Helpful?" vote on one review.
+class MyThumbVote {
+  /// The thumb shown as chosen: 'up', 'down' or null (taken back).
+  final String? chosen;
+
+  /// Each thumb sent to Judge.me from this phone ('up' / 'down') and its
+  /// count right after sending. Judge.me can't remove votes, so a thumb is
+  /// only ever sent once; its count here covers Judge.me lagging behind.
+  final Map<String, int> sentCounts;
+
+  const MyThumbVote({this.chosen, this.sentCounts = const {}});
+
+  MyThumbVote withChosen(String? value) =>
+      MyThumbVote(chosen: value, sentCounts: sentCounts);
+
+  factory MyThumbVote.fromJson(Map json) {
+    // Older saves were {type, count}.
+    if (json['type'] is String) {
+      final type = json['type'] as String;
+      return MyThumbVote(
+        chosen: type,
+        sentCounts: {type: (json['count'] as num?)?.toInt() ?? 0},
+      );
+    }
+    return MyThumbVote(
+      chosen: json['chosen'] as String?,
+      sentCounts: {
+        for (final e in ((json['sent'] as Map?) ?? const {}).entries)
+          '${e.key}': (e.value as num?)?.toInt() ?? 0,
+      },
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'chosen': chosen, 'sent': sentCounts};
 }
 
 /// A product's Judge.me rating summary plus its first page of reviews.
@@ -147,6 +196,84 @@ class ReviewsService {
           jsonDecode(res.body) as Map<String, dynamic>);
     } catch (e) {
       debugPrint('ReviewsService page $page [$id] error: $e');
+      return null;
+    }
+  }
+
+  static const String _votesKey = 'judgeme_thumb_votes';
+
+  /// This phone's votes, by review uuid.
+  Future<Map<String, MyThumbVote>> myVotes() async {
+    final raw = await _readVotes();
+    return {
+      for (final e in raw.entries)
+        if (e.value is Map) e.key: MyThumbVote.fromJson(e.value as Map),
+    };
+  }
+
+  Future<Map<String, dynamic>> _readVotes() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_votesKey);
+      if (raw == null || raw.isEmpty) return {};
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> _saveVote(String reviewUuid, MyThumbVote vote) async {
+    try {
+      final votes = await _readVotes();
+      votes[reviewUuid] = vote.toJson();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_votesKey, jsonEncode(votes));
+    } catch (e) {
+      debugPrint('ReviewsService save vote error: $e');
+    }
+  }
+
+  /// Changes which thumb is shown as chosen on this phone (null = none)
+  /// without contacting Judge.me. Used to take a vote back or to return to
+  /// a thumb already sent: Judge.me can't remove votes, so whatever was
+  /// sent stays counted there.
+  Future<void> setChosen(String reviewUuid, MyThumbVote vote) =>
+      _saveVote(reviewUuid, vote);
+
+  /// Marks a review helpful ([up]) or not, the same call the website's
+  /// Judge.me widget makes, and makes it this phone's chosen thumb.
+  /// [previous] is this phone's vote so far; [newCount] is that thumb's
+  /// count including this vote. Returns the updated vote, or null if the
+  /// request failed.
+  Future<MyThumbVote?> vote(
+    String reviewUuid, {
+    required bool up,
+    required int newCount,
+    MyThumbVote? previous,
+  }) async {
+    if (reviewUuid.isEmpty) return null;
+    final type = up ? 'up' : 'down';
+    try {
+      // Sent as if from the store's own product page, where the website's
+      // widget makes this call; Judge.me answers 200 "{}" either way, so
+      // the status alone doesn't prove the vote counted.
+      final res = await http.post(
+        Uri.https('judge.me', '/thumbs'),
+        headers: {
+          'Origin': ShopifyConstants.storeUrl,
+          'Referer': '${ShopifyConstants.storeUrl}/',
+        },
+        body: {'review_uuid': reviewUuid, 'thumb_type': type},
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode < 200 || res.statusCode >= 300) return null;
+      final updated = MyThumbVote(
+        chosen: type,
+        sentCounts: {...?previous?.sentCounts, type: newCount},
+      );
+      await _saveVote(reviewUuid, updated);
+      return updated;
+    } catch (e) {
+      debugPrint('ReviewsService vote error: $e');
       return null;
     }
   }
