@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/constants/app_ui.dart';
+import 'package:rookies_jeans/utils/webview_fresh.dart';
 
 double _s(BuildContext c, double base) =>
     Responsive.of(c, baseW: 375).s(base);
@@ -43,8 +44,8 @@ class _WebViewScreenState extends State<WebViewScreen> {
             _hasError  = true;
           }),
         ),
-      )
-      ..loadRequest(Uri.parse(widget.url));
+      );
+    WebViewFresh.load(_controller, Uri.parse(widget.url));
   }
 
   @override

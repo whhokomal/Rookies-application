@@ -20,6 +20,7 @@ import 'package:rookies_jeans/services/reviews_service.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/screens/cart/checkout_flow.dart';
 import 'package:rookies_jeans/utils/color_names.dart';
+import 'package:rookies_jeans/utils/webview_fresh.dart';
 import 'package:rookies_jeans/widgets/delivery_date_checker.dart';
 import 'package:rookies_jeans/widgets/price_text.dart';
 import 'package:rookies_jeans/widgets/product_reviews_section.dart';
@@ -205,8 +206,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           NavigationDelegate(
             onPageFinished: (_) => _sizeChartLoading.value = false,
           ),
-        )
-        ..loadRequest(uri);
+        );
+      unawaited(WebViewFresh.load(_sizeChartController!, uri));
     } catch (e) {
       debugPrint('_prewarmSizeChart failed: $e');
       _sizeChartController = null;

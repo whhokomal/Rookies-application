@@ -10,6 +10,7 @@ import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/models/cart_model.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/services/notification_service.dart';
+import 'package:rookies_jeans/utils/webview_fresh.dart';
 
 /// GoKwik checkout screen.
 ///
@@ -140,7 +141,7 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
       _gokwikInjected  = false;
     });
     _armTimer(_pageLoadTimeout, 'page load timeout');
-    _controller.loadRequest(_startUrl());
+    WebViewFresh.load(_controller, _startUrl());
   }
 
   /// The side cart opens on a light page of the GoKwik cart theme, as a
