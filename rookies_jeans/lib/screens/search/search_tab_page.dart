@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
 import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/models/collection_model.dart';
@@ -277,17 +276,6 @@ class _SearchTabPageState extends State<SearchTabPage> {
     );
   }
 
-  void _goBack() {
-    // This tab is the root of its own bottom-nav branch with nothing
-    // beneath it to pop to, so a plain Navigator.pop here would leave a
-    // blank screen — fall back to the dashboard tab instead.
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/home');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -308,7 +296,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
 
   static const double _kSide = 20;
 
-  /// Big "SEARCH" heading with a close button, a rule, then the search
+  /// Big "SEARCH" heading, a rule, then the search
   /// box, like the website's search drawer.
   Widget _topBar() {
     return Padding(
@@ -328,12 +316,6 @@ class _SearchTabPageState extends State<SearchTabPage> {
                     color: AppColors.primary,
                   ),
                 ),
-              ),
-              IconButton(
-                tooltip: 'Close',
-                icon: const Icon(Icons.close_rounded, size: 24),
-                color: AppColors.primary,
-                onPressed: _goBack,
               ),
             ],
           ),
@@ -355,7 +337,8 @@ class _SearchTabPageState extends State<SearchTabPage> {
 
   Widget _searchField() {
     return Container(
-      height: 54,
+      height: 46,
+      alignment: Alignment.center,
       padding: const EdgeInsets.only(left: 18, right: 6),
       color: AppColors.fieldFill,
       child: ValueListenableBuilder<String>(
@@ -381,6 +364,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
             ),
             border: InputBorder.none,
             isDense: true,
+            contentPadding: EdgeInsets.zero,
             suffixIcon: _searchCtrl.text.isNotEmpty
                 ? IconButton(
                     tooltip: 'Clear',
@@ -411,7 +395,9 @@ class _SearchTabPageState extends State<SearchTabPage> {
       return AnimatedBuilder(
         animation: SearchHistoryService.instance,
         builder: (context, _) {
-          final hasRecent = SearchHistoryService.instance.queries.isNotEmpty;
+          // Recent searches hidden for now.
+          // final hasRecent = SearchHistoryService.instance.queries.isNotEmpty;
+          const hasRecent = false;
           if (!hasRecent && _popularLinks.isEmpty && _trending.isEmpty) {
             return _idleState();
           }
@@ -420,7 +406,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
               if (_popularLinks.isNotEmpty) ..._popularLinksSection(),
-              if (hasRecent) ..._recentSearches(),
+              // if (hasRecent) ..._recentSearches(),
               if (_trending.isNotEmpty) ..._trendingSection(),
             ],
           );
@@ -477,6 +463,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
     for (final product in _trending) _resultTile(product),
   ];
 
+  // ignore: unused_element
   List<Widget> _recentSearches() {
     final queries = SearchHistoryService.instance.queries;
     return [
