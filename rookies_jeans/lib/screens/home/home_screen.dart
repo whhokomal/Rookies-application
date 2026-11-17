@@ -1053,7 +1053,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (product.product != null)
                   Positioned(
                     top: r.dp(2),
-                    right: r.dp(2),
+                       right: r.dp(2),
                     child: WishlistHeartButton(
                       product: product.product!,
                       idleColor: Colors.black,
