@@ -34,8 +34,8 @@ on the free plans of Cloudflare and Firebase.
 ## 3. Shopify
 
 The worker reuses the **Rookies OTP Login** app from `otp_login_worker`. In
-the Dev Dashboard add the **`read_orders`** and **`read_fulfillments`**
-scopes to its access scopes, release the version, then click **Install app**
+the Dev Dashboard add the **`read_orders`**, **`write_orders`** (to tag app
+orders "rookies_app") and **`read_fulfillments`** scopes to its access scopes, release the version, then click **Install app**
 on the app's overview to approve the new access on the store (until then
 Shopify refuses the webhooks with "You cannot create a webhook subscription
 with the specified topic"). Use that app's Client ID and

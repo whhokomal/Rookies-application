@@ -34,7 +34,7 @@ import { FLOWS, flowDef, DAY } from './flows.js';
 import { sendPush } from './fcm.js';
 import { ADMIN_PAGE } from './admin-page.js';
 import {
-  cartSummary, customerForToken, isValidWebhook, productStates, registerWebhooks,
+  adminGraphql, cartSummary, customerForToken, isValidWebhook, productStates, registerWebhooks,
 } from './shopify.js';
 
 const IST_OFFSET = 330 * 60 * 1000;
@@ -367,6 +367,19 @@ async function shopifyWebhook(request, env) {
   const now = Date.now();
 
   if (topic === 'orders/create') {
+    // The app's checkout sets this cart attribute (lib/screens/cart/checkout.dart).
+    const fromApp = (payload.note_attributes || [])
+      .some((a) => a.name === 'Order Source' && a.value === 'App');
+    if (fromApp) {
+      try {
+        await adminGraphql(
+          `mutation($id: ID!) { tagsAdd(id: $id, tags: ["rookies_app"]) { userErrors { message } } }`,
+          { id: payload.admin_graphql_api_id }, env,
+        );
+      } catch (e) {
+        console.error('tagging app order failed', e); // don't block the push flows below
+      }
+    }
     const order = {
       id: String(payload.id),
       name: payload.name || '',
