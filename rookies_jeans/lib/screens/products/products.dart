@@ -1650,13 +1650,15 @@ class _ProductsPageState extends State<ProductsPage> {
                   // without swatches the sizes move up under the price.
                   const SizedBox(height: 6),
                   SizedBox(
-                    height: 14 + 6 + ProductSizeRow.heightFor(),
+                    height: ProductSwatchRow.defaultSize +
+                        6 +
+                        ProductSizeRow.heightFor(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (ProductSwatchRow.hasSwatches(product)) ...[
                           SizedBox(
-                            height: 14,
+                            height: ProductSwatchRow.defaultSize,
                             child: ProductSwatchRow(
                               product: product,
                               onSelectColor: (handle) =>

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rookies_jeans/services/shopify_api.dart';
 import 'package:rookies_jeans/models/cart_model.dart';
+import 'package:rookies_jeans/services/gokwik_cart_preloader.dart';
 import 'package:rookies_jeans/services/notification_service.dart';
 
 class CartService extends ChangeNotifier {
@@ -199,7 +200,14 @@ class CartService extends ChangeNotifier {
     return data?['cart']?['id'] as String?;
   }
 
-  Future<bool> addLine({required String variantId, int quantity = 1}) {
+  Future<bool> addLine({required String variantId, int quantity = 1}) async {
+    final added = await _addLine(variantId: variantId, quantity: quantity);
+    // Someone shopping is likely to open the cart soon; get it ready.
+    if (added) GokwikCartPreloader.instance.warm();
+    return added;
+  }
+
+  Future<bool> _addLine({required String variantId, int quantity = 1}) {
     return _run(() async {
       _lastError = null;
       try {

@@ -977,7 +977,7 @@ class _HomeScreenState extends State<HomeScreen> {
         r.dp(4) +
         scaler.scale(r.sp(13)) * 1.4 +
         r.dp(6) +
-        14 +
+        ProductSwatchRow.defaultSize +
         r.dp(6) +
         ProductSizeRow.heightFor();
     return cardWidth / _kExploreImageAspect + textBlock + 2;
@@ -1041,7 +1041,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: const Color(0xFFB3261E),
                       child: Text(
                         product.discountLabel!,
-                        style: TextStyle(
+                           style: TextStyle(
                           fontFamily: AppFonts.bold,
                           color: Colors.white,
                           fontSize: r.sp(10),
@@ -1114,7 +1114,9 @@ class _HomeScreenState extends State<HomeScreen> {
           // move up under the price.
           SizedBox(height: r.dp(6)),
           SizedBox(
-            height: 14 + r.dp(6) + ProductSizeRow.heightFor(),
+            height: ProductSwatchRow.defaultSize +
+                r.dp(6) +
+                ProductSizeRow.heightFor(),
             child: product.product == null
                 ? null
                 : Column(
@@ -1122,7 +1124,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       if (ProductSwatchRow.hasSwatches(product.product!)) ...[
                         SizedBox(
-                          height: 14,
+                          height: ProductSwatchRow.defaultSize,
                           child: ProductSwatchRow(
                             product: product.product!,
                             onSelectColor: onSelectColor,

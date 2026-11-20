@@ -9,6 +9,7 @@ import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/constants/shopify_constants.dart';
 import 'package:rookies_jeans/models/cart_model.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
+import 'package:rookies_jeans/services/gokwik_cart_preloader.dart';
 import 'package:rookies_jeans/services/notification_service.dart';
 import 'package:rookies_jeans/utils/webview_fresh.dart';
 
@@ -42,7 +43,7 @@ class CheckoutWebView extends StatefulWidget {
 }
 
 class _CheckoutWebViewState extends State<CheckoutWebView> {
-  static const String _bridgeName = 'RookiesCheckout';
+  static const String _bridgeName = GokwikCartPreloader.bridgeName;
   /// The storefront is heavy and can take a while on slower phones, so each
   /// launch step gets its own time budget instead of one overall deadline.
   static const Duration _pageLoadTimeout = Duration(seconds: 45);
@@ -77,38 +78,41 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..addJavaScriptChannel(_bridgeName, onMessageReceived: _onBridgeMessage)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (url) {
-            _navigationCount++;
-            // A redirect (e.g. Shopify's theme preview link) throws away a
-            // script injected into the previous page, so inject it again.
-            if (_launchingGokwik) _gokwikInjected = false;
-            if (mounted) setState(() => _isLoading = true);
-            _checkForOrderCompletion(url);
-          },
-          onPageFinished: (url) {
-            if (mounted) setState(() => _isLoading = false);
-            _checkForOrderCompletion(url);
-            _maybeLaunchGokwik(url);
-          },
-          onUrlChange: (change) {
-            final url = change.url;
-            if (url != null) _checkForOrderCompletion(url);
-          },
-          onNavigationRequest: (request) => _handleNavigationRequest(request),
-          onWebResourceError: (error) {
-            debugPrint('CheckoutWebView error: ${error.description}');
-            if (error.isForMainFrame == true && _launchingGokwik) {
-              _fail('page load error: ${error.description}');
-            }
-          },
-        ),
-      );
-    _startGokwik();
+    // The side cart's page may already be loaded in the background.
+    final preloaded =
+        widget.openCart ? GokwikCartPreloader.instance.take() : null;
+    final hooks = preloaded?.hooks ?? CartWebHooks();
+    hooks
+      ..onMessage = _onBridgeMessage
+      ..onPageStarted = (url) {
+        _navigationCount++;
+        // A redirect (e.g. Shopify's theme preview link) throws away a
+        // script injected into the previous page, so inject it again.
+        if (_launchingGokwik) _gokwikInjected = false;
+        if (mounted) setState(() => _isLoading = true);
+        _checkForOrderCompletion(url);
+      }
+      ..onPageFinished = (url) {
+        if (mounted) setState(() => _isLoading = false);
+        _checkForOrderCompletion(url);
+        _maybeLaunchGokwik(url);
+      }
+      ..onUrlChange = _checkForOrderCompletion
+      ..onNavigationRequest = _handleNavigationRequest
+      ..onWebResourceError = (error) {
+        debugPrint('CheckoutWebView error: ${error.description}');
+        if (error.isForMainFrame == true && _launchingGokwik) {
+          _fail('page load error: ${error.description}');
+        }
+      };
+    _controller = preloaded?.controller ??
+        GokwikCartPreloader.buildController(hooks);
+    _startGokwik(preloaded: preloaded != null);
+    final finishedUrl = preloaded?.finishedUrl;
+    if (finishedUrl != null) {
+      _isLoading = false;
+      _maybeLaunchGokwik(finishedUrl);
+    }
   }
 
   @override
@@ -129,7 +133,9 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
     return items;
   }
 
-  void _startGokwik() {
+  /// With [preloaded], the page is already loaded or loading in
+  /// [_controller], so it isn't requested again.
+  void _startGokwik({bool preloaded = false}) {
     // An empty cart can still be opened; GoKwik shows its empty state.
     if (_gokwikItems().isEmpty && !widget.openCart) {
       _fail('no valid cart lines');
@@ -141,21 +147,12 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
       _gokwikInjected  = false;
     });
     _armTimer(_pageLoadTimeout, 'page load timeout');
-    WebViewFresh.load(_controller, _startUrl());
-  }
-
-  /// The side cart opens on a light page of the GoKwik cart theme, as a
-  /// preview (without Shopify's preview bar) until the theme is published.
-  Uri _startUrl() {
-    if (!widget.openCart) {
-      return Uri.parse('${ShopifyConstants.storeUrl}/cart');
-    }
-    final themeId = ShopifyConstants.gokwikCartThemeId;
-    return Uri.parse(
-      '${ShopifyConstants.storeUrl}${ShopifyConstants.gokwikCartPage}',
-    ).replace(
-      queryParameters:
-          themeId == null ? null : {'preview_theme_id': themeId, 'pb': '0'},
+    if (preloaded) return;
+    WebViewFresh.load(
+      _controller,
+      widget.openCart
+          ? GokwikCartPreloader.cartPageUri()
+          : Uri.parse('${ShopifyConstants.storeUrl}/cart'),
     );
   }
 

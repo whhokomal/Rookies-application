@@ -767,10 +767,9 @@ for (final e in rawVariantEdges) {
         () => _fetchProductCard(handle),
       );
 
-  Future<ShopifyProduct?> _fetchProductCard(String handle) async {
-    const String query = r'''
-    query getProductCard($handle: String!) {
-      productByHandle(handle: $handle) {
+  /// The product fields a card needs, shared by [getProductCard] and the
+  /// swatch lookup that preloads it.
+  static const String _productCardFields = r'''
         id
         title
         handle
@@ -795,6 +794,13 @@ for (final e in rawVariantEdges) {
             }
           }
         }
+''';
+
+  Future<ShopifyProduct?> _fetchProductCard(String handle) async {
+    const String query = '''
+    query getProductCard(\$handle: String!) {
+      productByHandle(handle: \$handle) {
+$_productCardFields
       }
     }
     ''';
@@ -846,14 +852,17 @@ for (final e in rawVariantEdges) {
     _pendingSwatchInfo.clear();
     final handles = batch.keys.toList();
     // Shopify caps a query's cost, so ask in chunks.
-    for (var start = 0; start < handles.length; start += 50) {
-      final chunk = handles.skip(start).take(50).toList();
+    for (var start = 0; start < handles.length; start += 20) {
+      final chunk = handles.skip(start).take(20).toList();
       final buffer = StringBuffer('query getColorSwatchInfo {\n');
       for (int i = 0; i < chunk.length; i++) {
         final safeHandle = chunk[i].replaceAll('"', r'\"');
         buffer.write('  p$i: productByHandle(handle: "$safeHandle") {\n');
         buffer.write('    availableForSale\n');
         buffer.write('    featuredImage { url(transform: {maxWidth: 80}) }\n');
+        // The whole card too, so tapping this color swaps the card at once
+        // instead of waiting for getProductCard.
+        buffer.write(_productCardFields);
         buffer.write('  }\n');
       }
       buffer.write('}');
@@ -878,6 +887,14 @@ for (final e in rawVariantEdges) {
             available: available,
             photoUrl: node['featuredImage']?['url'] as String?,
           ));
+          try {
+            _cache['productCard:${chunk[i]}'] = (
+              value: ShopifyProduct.fromJson(node as Map<String, dynamic>),
+              at: DateTime.now(),
+            );
+          } catch (e) {
+            _log('swatch card parse failed for ${chunk[i]}: $e');
+          }
         }
       }
     }

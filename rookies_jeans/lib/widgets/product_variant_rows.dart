@@ -12,7 +12,7 @@ class ProductVariantRows extends StatelessWidget {
   const ProductVariantRows({
     super.key,
     required this.product,
-    this.swatchSize = 14,
+    this.swatchSize = ProductSwatchRow.defaultSize,
     this.sizeFontSize = 10,
   });
 
@@ -25,7 +25,10 @@ class ProductVariantRows extends StatelessWidget {
   double get height =>
       heightFor(swatchSize: swatchSize, sizeFontSize: sizeFontSize);
 
-  static double heightFor({double swatchSize = 14, double sizeFontSize = 10}) =>
+  static double heightFor({
+    double swatchSize = ProductSwatchRow.defaultSize,
+    double sizeFontSize = 10,
+  }) =>
       swatchSize + _gap + ProductSizeRow.heightFor(fontSize: sizeFontSize);
 
   @override

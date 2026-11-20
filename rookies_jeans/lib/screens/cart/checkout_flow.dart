@@ -6,6 +6,7 @@ import 'package:rookies_jeans/screens/cart/checkout.dart';
 import 'package:rookies_jeans/screens/profile/address_book.dart';
 import 'package:rookies_jeans/services/address_service.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
+import 'package:rookies_jeans/services/gokwik_cart_preloader.dart';
 import 'package:rookies_jeans/services/notification_service.dart';
 import 'package:rookies_jeans/services/shopify_auth_service.dart';
 
@@ -89,6 +90,9 @@ Future<void> openGokwikCart(BuildContext context) async {
       // GoKwik places the order from the website's cart, so the app's
       // Storefront cart is never converted; start a fresh one.
       await CartService.instance.reset();
+    } else if (CartService.instance.cart.lines.isNotEmpty) {
+      // Each preloaded page is used once; ready the next one.
+      GokwikCartPreloader.instance.warm();
     }
   } finally {
     _cartOpen = false;

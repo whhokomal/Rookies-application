@@ -12,7 +12,7 @@ class ProductSwatchRow extends StatelessWidget {
   const ProductSwatchRow({
     super.key,
     required this.product,
-    this.size = 14,
+    this.size = defaultSize,
     this.onSelectColor,
   });
 
@@ -24,6 +24,10 @@ class ProductSwatchRow extends StatelessWidget {
   final ValueChanged<String>? onSelectColor;
 
   static const int _maxVisible = 3;
+  static const double _gap = 6;
+
+  /// Card swatch size: big enough to hit with a thumb.
+  static const double defaultSize = 18;
 
   /// Whether the row would show anything for [product].
   static bool hasSwatches(ShopifyProduct product) =>
@@ -84,23 +88,29 @@ class ProductSwatchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final swatches = _swatchesFor(product);
     if (swatches.isEmpty) return const SizedBox.shrink();
-    // The color the card is showing always comes first, so it is never
-    // hidden behind "+N".
+    // Colors keep the store's order; only the outline moves. The color the
+    // card is showing is moved into the last visible slot only if it would
+    // otherwise be hidden behind "+N".
     final current = swatches.indexWhere((s) => s.handle == product.handle);
-    if (current > 0) swatches.insert(0, swatches.removeAt(current));
+    if (current >= _maxVisible) {
+      swatches.insert(_maxVisible - 1, swatches.removeAt(current));
+    }
     final visible = swatches.take(_maxVisible).toList();
     final extra = swatches.length - visible.length;
     return Row(
       children: [
         for (final swatch in visible)
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
+          // Keyed by color: the row reorders when the card swaps color, and
+          // without a key each slot kept showing its old swatch image.
+          KeyedSubtree(
+            key: ValueKey(swatch.handle ?? swatch.color.toARGB32()),
             child: swatch.inStock != null || swatch.handle == null
                 ? _tile(swatch, swatch.inStock ?? true)
                 : FutureBuilder<ColorSwatchInfo?>(
                     future: ShopifyStorefrontService.instance
                         .getColorSwatchInfo(swatch.handle!),
-                    // Shown as in stock until known, or if it can't be checked.
+                    // Shown as in stock until known, or if it can't be
+                    // checked.
                     builder: (_, snap) =>
                         _tile(swatch, snap.data?.available ?? true),
                   ),
@@ -124,43 +134,47 @@ class ProductSwatchRow extends StatelessWidget {
     final imageUrl = swatch.imageUrl;
     final canTap =
         onSelectColor != null && inStock && swatch.handle != null && !isCurrent;
+    // The gap after the swatch is part of its tap area, so a near miss
+    // doesn't open the product instead.
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: canTap ? () => onSelectColor!(swatch.handle!) : null,
-      child: SoldOutStrike(
-        soldOut: !inStock,
-        child: Container(
-          width: size,
-          height: size,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            // An image swatch stays light grey until its image arrives.
-            color: imageUrl != null ? AppColors.fieldFill : swatch.color,
-            borderRadius: BorderRadius.circular(3),
-          ),
-          // A thin outline on every swatch, drawn over the image too, so
-          // white and light colors don't vanish on the white card. The color
-          // the card is showing gets a dark one.
-          foregroundDecoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(3),
-            border: Border.all(
-              color: isCurrent
-                  ? AppColors.primary
-                  : AppColors.border,
-              width: 1,
+      child: Padding(
+        padding: const EdgeInsets.only(right: _gap),
+        child: SoldOutStrike(
+          soldOut: !inStock,
+          child: Container(
+            width: size,
+            height: size,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              // An image swatch stays light grey until its image arrives.
+              color: imageUrl != null ? AppColors.fieldFill : swatch.color,
+              borderRadius: BorderRadius.circular(3),
             ),
+            // A thin outline on every swatch, drawn over the image too, so
+            // white and light colors don't vanish on the white card. The color
+            // the card is showing gets a dark one.
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(
+                color: isCurrent ? AppColors.primary : AppColors.border,
+                width: 1,
+              ),
+            ),
+            child: imageUrl == null
+                ? null
+                : Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    // The swatch CDN sends no CORS headers, so a browser
+                    // build can't read the image's pixels; fall back to a
+                    // plain <img> element, as the website itself uses.
+                    // Ignored on Android/iOS.
+                    webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                    errorBuilder: (_, _, _) => ColoredBox(color: swatch.color),
+                  ),
           ),
-          child: imageUrl == null
-              ? null
-              : Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  // The swatch CDN sends no CORS headers, so a browser
-                  // build can't read the image's pixels; fall back to a
-                  // plain <img> element, as the website itself uses.
-                  // Ignored on Android/iOS.
-                  webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-                  errorBuilder: (_, _, _) => ColoredBox(color: swatch.color),
-                ),
         ),
       ),
     );
