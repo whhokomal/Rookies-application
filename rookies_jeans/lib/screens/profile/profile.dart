@@ -36,7 +36,11 @@ class ProfileScreen extends StatelessWidget {
 /// The welcome photo: the `welcome_image` metaobject's image when set,
 /// otherwise the bundled image.
 class _WelcomeImage extends StatefulWidget {
-  const _WelcomeImage();
+  const _WelcomeImage({required this.loadingH});
+
+  /// Height used only while loading / on error; the loaded photo sizes
+  /// itself from its aspect ratio so nothing is cropped.
+  final double loadingH;
 
   @override
   State<_WelcomeImage> createState() => _WelcomeImageState();
@@ -48,9 +52,10 @@ class _WelcomeImageState extends State<_WelcomeImage> {
 
   Widget _fallback(BuildContext context) => Image.asset(
         'assets/welcome_model.png',
-        fit: BoxFit.cover,
-        alignment: Alignment.topCenter,
+        width: double.infinity,
+        fit: BoxFit.fitWidth,
         errorBuilder: (_, _, _) => Container(
+          height: widget.loadingH,
           color: AppColors.fieldFill,
           child: Icon(
             Icons.person,
@@ -66,15 +71,16 @@ class _WelcomeImageState extends State<_WelcomeImage> {
       future: _url,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return Container(color: AppColors.fieldFill);
+          return Container(height: widget.loadingH, color: AppColors.fieldFill);
         }
         final url = snap.data;
         if (url == null || url.isEmpty) return _fallback(context);
         return CachedNetworkImage(
           imageUrl: url,
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
-          placeholder: (_, _) => Container(color: AppColors.fieldFill),
+          width: double.infinity,
+          fit: BoxFit.fitWidth,
+          placeholder: (_, _) =>
+              Container(height: widget.loadingH, color: AppColors.fieldFill),
           errorWidget: (_, _, _) => _fallback(context),
         );
       },
@@ -107,11 +113,7 @@ class _LoggedOutProfile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SizedBox(
-                        width: double.infinity,
-                        height: halfH,
-                        child: const _WelcomeImage(),
-                      ),
+                      _WelcomeImage(loadingH: halfH),
                       Container(
                         color: AppColors.card,
                         padding: EdgeInsets.fromLTRB(

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rookies_jeans/services/shopify_api.dart';
 import 'package:rookies_jeans/models/cart_model.dart';
@@ -53,6 +54,16 @@ class CartService extends ChangeNotifier {
     }
 
     _initialized = true;
+    // A cart left from an earlier visit opens without a cold page load, and
+    // so does one reopened after the preloaded page went stale.
+    _lifecycle ??= AppLifecycleListener(onResume: _warmCartPage);
+    _warmCartPage();
+  }
+
+  AppLifecycleListener? _lifecycle;
+
+  void _warmCartPage() {
+    if (_cart.lines.isNotEmpty) GokwikCartPreloader.instance.warm();
   }
 
   Future<void> _persistCartId(String id) async {

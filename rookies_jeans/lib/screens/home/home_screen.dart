@@ -1005,12 +1005,12 @@ class _HomeScreenState extends State<HomeScreen> {
     ValueChanged<String>? onSelectColor,
   }) {
     return GestureDetector(
-      onTap: () => _openProductDetailFromExplore(product),
+      onTap: () => _openProductDetailFromExplore(product), 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AspectRatio(
-            aspectRatio: _kExploreImageAspect,
+            aspectRatio: _kExploreImageAspect, 
             child: Stack(
               fit: StackFit.expand,
               children: [

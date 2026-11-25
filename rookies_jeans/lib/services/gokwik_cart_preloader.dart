@@ -9,6 +9,7 @@ import 'package:rookies_jeans/utils/webview_fresh.dart';
 class CartWebHooks {
   void Function(String url)? onPageStarted;
   void Function(String url)? onPageFinished;
+  void Function(int progress)? onProgress;
   void Function(String url)? onUrlChange;
   void Function(WebResourceError error)? onWebResourceError;
   FutureOr<NavigationDecision> Function(NavigationRequest request)?
@@ -69,6 +70,7 @@ class GokwikCartPreloader {
         NavigationDelegate(
           onPageStarted: (url) => hooks.onPageStarted?.call(url),
           onPageFinished: (url) => hooks.onPageFinished?.call(url),
+          onProgress: (p) => hooks.onProgress?.call(p),
           onUrlChange: (change) {
             final url = change.url;
             if (url != null) hooks.onUrlChange?.call(url);

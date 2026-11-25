@@ -59,6 +59,7 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
   /// True while the storefront is loading and GoKwik is being launched.
   bool _launchingGokwik = false;
   bool _gokwikInjected  = false;
+  bool _earlyInjected   = false;
   Timer? _gokwikTimer;
 
   /// Shown instead of the web view when GoKwik could not be started.
@@ -89,6 +90,7 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
         // A redirect (e.g. Shopify's theme preview link) throws away a
         // script injected into the previous page, so inject it again.
         if (_launchingGokwik) _gokwikInjected = false;
+        _earlyInjected = false;
         if (mounted) setState(() => _isLoading = true);
         _checkForOrderCompletion(url);
       }
@@ -97,6 +99,7 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
         _checkForOrderCompletion(url);
         _maybeLaunchGokwik(url);
       }
+      ..onProgress = _injectEarly
       ..onUrlChange = _checkForOrderCompletion
       ..onNavigationRequest = _handleNavigationRequest
       ..onWebResourceError = (error) {
@@ -170,9 +173,31 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
 
     _gokwikInjected = true;
     _armTimer(_stepTimeout, 'GoKwik script timeout');
+    _controller.runJavaScript(_gokwikScript());
+  }
+
+  /// GoKwik's scripts are usually ready long before the page's images finish
+  /// loading, so the launch script also runs part way through the load. The
+  /// page's own guard stops it running twice; onPageFinished stays the backstop.
+  Future<void> _injectEarly(int progress) async {
+    if (progress < 50 || _earlyInjected || !_launchingGokwik || _gokwikInjected) {
+      return;
+    }
+    _earlyInjected = true;
+    final url = await _controller.currentUrl();
+    final host = url == null ? null : Uri.tryParse(url)?.host;
+    if (!mounted || host != Uri.parse(ShopifyConstants.storeUrl).host) return;
+    try {
+      await _controller.runJavaScript(_gokwikScript());
+    } catch (e) {
+      debugPrint('CheckoutWebView: early inject failed ($e)');
+    }
+  }
+
+  String _gokwikScript() {
     final items = jsonEncode(_gokwikItems());
     final openCart = widget.openCart;
-    _controller.runJavaScript('''
+    return '''
 (function () {
   // Android can report the same page finished more than once.
   if (window.__rookiesGokwikInjected) return;
@@ -297,7 +322,7 @@ class _CheckoutWebViewState extends State<CheckoutWebView> {
   }
   waitForGokwik();
 })();
-''');
+''';
   }
 
   void _onBridgeMessage(JavaScriptMessage message) {
