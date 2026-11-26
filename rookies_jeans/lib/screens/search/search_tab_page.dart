@@ -700,6 +700,7 @@ class _SearchTabPageState extends State<SearchTabPage> {
               child: product.primaryImageUrl != null
                   ? CachedNetworkImage(
                       imageUrl: product.primaryImageUrl!,
+                      memCacheWidth: ImageDecode.thumb,
                       fit: BoxFit.cover,
                       placeholder: (_, _) =>
                           Container(color: AppColors.fieldFill),

@@ -419,6 +419,7 @@ class _CartScreenState extends State<CartScreen> {
                     child: line.imageUrl != null
                         ? CachedNetworkImage(
                             imageUrl: line.imageUrl!,
+                            memCacheWidth: ImageDecode.card,
                             // Fills the box; trims the bottom of the photo
                             // when the box is shorter, keeping the face.
                             fit: BoxFit.cover,

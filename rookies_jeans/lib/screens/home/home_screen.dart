@@ -132,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
       collectionHandle: 'JEANS',
     ),
     _PromoBlockData(
-      assetPath: 'assets/cargo.png',
+      assetPath: 'assets/cargo.jpg',
       label: 'Cargos',
       buttonLabel: 'Explore',
       collectionHandle: 'CARGOS',
@@ -593,7 +593,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           SliverToBoxAdapter(child: _shopTheLookSection()),
                         ..._featureBannerSlivers(),
                         SliverToBoxAdapter(child: _shopByOccasionsSection()),
-                        SliverToBoxAdapter(child: _exploreCollectionsSection()),
+                        ..._exploreCollectionsSlivers(),
                         const SliverToBoxAdapter(
                           child: SizedBox(height: _kBottomNavClearance),
                         ),
@@ -889,6 +889,7 @@ class _HomeScreenState extends State<HomeScreen> {
             image: cat.imageUrl != null
                 ? CachedNetworkImage(
                     imageUrl: cat.imageUrl!,
+                    memCacheWidth: ImageDecode.card,
                     fit: BoxFit.cover,
                     // Light fill while loading so cards scrolling into
                     // view don't flash a dark box before the photo lands.
@@ -1001,7 +1002,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _collectionProductCard(
     _ShopifyProductItem product,
-    R r, {
+    R r, {  
     ValueChanged<String>? onSelectColor,
   }) {
     return GestureDetector(
@@ -1019,6 +1020,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: product.imageUrl != null
                       ? CachedNetworkImage(
                           imageUrl: product.imageUrl!,
+                          memCacheWidth: ImageDecode.card,
                           fit: BoxFit.cover,
                           placeholder: (_, _) => const SizedBox(),
                           errorWidget: (_, _, _) => const SizedBox(),
@@ -1337,26 +1339,27 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _exploreCollectionsSection() {
+  List<Widget> _exploreCollectionsSlivers() {
     final r = R.of(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: r.dp(8)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _sliverHeadAsBox('EXPLORE COLLECTIONS'),
-          _exploreTabsRow(r),
-          SizedBox(height: r.dp(6)),
-          _exploreCategoryChipsRow(r),
-          if (_visibleExploreFitValues.isNotEmpty) ...[
+    return [
+      SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _sliverHeadAsBox('EXPLORE COLLECTIONS'),
+            _exploreTabsRow(r),
             SizedBox(height: r.dp(6)),
-            _exploreFitChipsRow(r),
+            _exploreCategoryChipsRow(r),
+            if (_visibleExploreFitValues.isNotEmpty) ...[
+              SizedBox(height: r.dp(6)),
+              _exploreFitChipsRow(r),
+            ],
+            SizedBox(height: r.dp(18)),
           ],
-          SizedBox(height: r.dp(18)),
-          _exploreProductGrid(r),
-        ],
+        ),
       ),
-    );
+      ..._exploreProductGridSlivers(r),
+    ];
   }
 
   Widget _exploreTabsRow(R r) {
@@ -1423,66 +1426,77 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _exploreProductGrid(R r) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: r.dp(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_exploreLoadingFirst && _exploreProducts.isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: r.dp(32)),
-              child: Center(
-                child: SizedBox(
-                  width: r.dp(24),
-                  height: r.dp(24),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            )
-            else if (_exploreProducts.isEmpty)
-            _empty()
-          else
-            // While a new filter loads, the old products stay (dimmed) so
-            // the grid keeps its height instead of collapsing to a spinner.
-            IgnorePointer(
-              ignoring: _exploreLoadingFirst,
-              child: AnimatedOpacity(
-                opacity: _exploreLoadingFirst ? 0.4 : 1,
-                duration: const Duration(milliseconds: 150),
-                child: LayoutBuilder(
-                  builder: (context, constraints) => GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _exploreProducts.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: r.dp(16),
-                      crossAxisSpacing: r.dp(12),
-                      mainAxisExtent: _exploreCardExtent(
-                        r,
-                        constraints.maxWidth,
-                        r.dp(12),
-                      ),
-                    ),
-                    itemBuilder: (_, i) {
-                      final listed = _exploreProducts[i];
-                      return _collectionProductCard(
-                        _mapShopifyProduct(
-                          _exploreShownColor[listed.id] ?? listed,
-                        ),
-                        r,
-                        onSelectColor: (handle) =>
-                            _showExploreColor(listed, handle),
-                      );
-                    },
-                  ),
+  /// A real sliver (not a shrink-wrapped GridView) so only the cards on
+  /// screen are built, however many pages have loaded.
+  List<Widget> _exploreProductGridSlivers(R r) {
+    final pad = EdgeInsets.symmetric(horizontal: r.dp(16));
+    return [
+      if (_exploreLoadingFirst && _exploreProducts.isEmpty)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: r.dp(32)),
+            child: Center(
+              child: SizedBox(
+                width: r.dp(24),
+                height: r.dp(24),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
                 ),
               ),
             ),
+          ),
+        )
+      else if (_exploreProducts.isEmpty)
+        SliverToBoxAdapter(child: Padding(padding: pad, child: _empty()))
+      else
+        // While a new filter loads, the old products stay (dimmed) so
+        // the grid keeps its height instead of collapsing to a spinner.
+        SliverIgnorePointer(
+          ignoring: _exploreLoadingFirst,
+          sliver: SliverAnimatedOpacity(
+            opacity: _exploreLoadingFirst ? 0.4 : 1,
+            duration: const Duration(milliseconds: 150),
+            sliver: SliverPadding(
+              padding: pad,
+              sliver: SliverLayoutBuilder(
+                builder: (context, constraints) => SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: r.dp(16),
+                    crossAxisSpacing: r.dp(12),
+                    mainAxisExtent: _exploreCardExtent(
+                      r,
+                      constraints.crossAxisExtent,
+                      r.dp(12),
+                    ),
+                  ),
+                  delegate: SliverChildBuilderDelegate((_, i) {
+                    final listed = _exploreProducts[i];
+                    return _collectionProductCard(
+                      _mapShopifyProduct(
+                        _exploreShownColor[listed.id] ?? listed,
+                      ),
+                      r,
+                      onSelectColor: (handle) =>
+                          _showExploreColor(listed, handle),
+                    );
+                  }, childCount: _exploreProducts.length),
+                ),
+              ),
+            ),
+          ),
+        ),
+      SliverToBoxAdapter(child: _exploreGridFooter(r)),
+    ];
+  }
+
+  Widget _exploreGridFooter(R r) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: r.dp(8)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           if (_exploreLoadingMore)
             Padding(
               padding: EdgeInsets.symmetric(vertical: r.dp(20)),
@@ -2351,6 +2365,7 @@ class _ShopTheLookAutoSlideCardState extends State<_ShopTheLookAutoSlideCard> {
                             child: item.imageUrl != null
                                 ? CachedNetworkImage(
                                     imageUrl: item.imageUrl!,
+                                    memCacheWidth: ImageDecode.thumb,
                                     fit: BoxFit.cover,
                                     placeholder: (_, _) => const SizedBox(),
                                     errorWidget: (_, _, _) =>

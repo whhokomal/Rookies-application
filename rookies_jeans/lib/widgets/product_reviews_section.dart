@@ -382,6 +382,7 @@ class _ReviewTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
                 child: CachedNetworkImage(
                   imageUrl: review.pictureUrls[i],
+                  memCacheWidth: ImageDecode.thumb,
                   width: 72,
                   height: 72,
                   fit: BoxFit.cover,
@@ -667,6 +668,7 @@ class _ReviewDetailPageState extends State<ReviewDetailPage> {
                       clipBehavior: Clip.antiAlias,
                       child: CachedNetworkImage(
                         imageUrl: _pictures[i],
+                        memCacheWidth: ImageDecode.thumb,
                         fit: BoxFit.cover,
                         errorWidget: (_, _, _) =>
                             Container(color: AppColors.fieldFill),

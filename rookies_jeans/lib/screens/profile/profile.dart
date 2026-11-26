@@ -51,7 +51,7 @@ class _WelcomeImageState extends State<_WelcomeImage> {
       ShopifyStorefrontService.instance.getWelcomeImage();
 
   Widget _fallback(BuildContext context) => Image.asset(
-        'assets/welcome_model.png',
+        'assets/welcome_model.jpg',
         width: double.infinity,
         fit: BoxFit.fitWidth,
         errorBuilder: (_, _, _) => Container(

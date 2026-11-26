@@ -1546,6 +1546,7 @@ class _ProductsPageState extends State<ProductsPage> {
                           final url = images[idx];
                           return CachedNetworkImage(
                             imageUrl: url,
+                            memCacheWidth: ImageDecode.card,
                             fit: BoxFit.cover,
                             placeholder: (_, _) =>
                                 Container(color: const Color(0xFFEEEEEE)),
@@ -1557,6 +1558,7 @@ class _ProductsPageState extends State<ProductsPage> {
                       (product.primaryImageUrl != null
                           ? CachedNetworkImage(
                               imageUrl: product.primaryImageUrl!,
+                              memCacheWidth: ImageDecode.card,
                               fit: BoxFit.cover,
                               placeholder: (_, _) =>
                                   Container(color: AppColors.fieldFill),
@@ -1702,6 +1704,7 @@ class _ProductsPageState extends State<ProductsPage> {
           product.primaryImageUrl != null
               ? CachedNetworkImage(
                   imageUrl: product.primaryImageUrl!,
+                  memCacheWidth: ImageDecode.card,
                   fit: BoxFit.cover,
                   placeholder: (_, _) => Container(color: AppColors.fieldFill),
                   errorWidget: (_, _, _) => _imagePlaceholder(),

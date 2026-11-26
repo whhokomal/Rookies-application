@@ -161,7 +161,7 @@ class _OrderTile extends StatelessWidget {
             ClipRRect(
               // borderRadius: BorderRadius.circular(8),
               child: imageUrl != null
-                  ? CachedNetworkImage(imageUrl: imageUrl, width: imgW, height: imgH, fit: BoxFit.fill,
+                  ? CachedNetworkImage(imageUrl: imageUrl, memCacheWidth: ImageDecode.thumb, width: imgW, height: imgH, fit: BoxFit.fill,
                       errorWidget: (_, _, _) => _imgPlaceholder(imgW))
                   : _imgPlaceholder(imgW),
             ),
@@ -842,7 +842,7 @@ class _LineItemRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           imageUrl != null
-              ? CachedNetworkImage(imageUrl: imageUrl, width: imgW, height: imgH, fit: BoxFit.cover,
+              ? CachedNetworkImage(imageUrl: imageUrl, memCacheWidth: ImageDecode.thumb, width: imgW, height: imgH, fit: BoxFit.cover,
                   errorWidget: (_, _, _) => _imgPlaceholder(imgW))
               : _imgPlaceholder(imgW),
           const SizedBox(width: 14),

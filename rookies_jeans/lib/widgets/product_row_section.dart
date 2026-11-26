@@ -106,6 +106,7 @@ class ProductRowSection extends StatelessWidget {
                     product.primaryImageUrl != null
                         ? CachedNetworkImage(
                             imageUrl: product.primaryImageUrl!,
+                            memCacheWidth: ImageDecode.card,
                             fit: BoxFit.cover,
                             alignment: Alignment.topCenter,
                             placeholder: (_, _) =>

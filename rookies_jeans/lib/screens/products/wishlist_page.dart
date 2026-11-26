@@ -219,6 +219,7 @@ class _WishlistPageState extends State<WishlistPage> {
                       child: imageUrl != null
                           ? CachedNetworkImage(
                               imageUrl: imageUrl,
+                              memCacheWidth: ImageDecode.card,
                               fit: BoxFit.cover,
                               placeholder: (_, _) =>
                                   Container(color: AppColors.fieldFill),

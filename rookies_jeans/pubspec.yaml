@@ -44,7 +44,8 @@ flutter:
 
   assets:
     - assets/          # root assets (images, video, etc.)
-    - assets/fonts/    # ← required so Flutter finds the .ttf files
+    # Fonts load through the `fonts:` section below; listing assets/fonts/
+    # here would also ship every unused .ttf in that folder.
 
   fonts:
   # HEADING

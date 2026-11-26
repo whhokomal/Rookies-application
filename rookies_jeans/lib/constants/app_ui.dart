@@ -72,6 +72,18 @@ class AppLayout {
   static const double maxContentMedium = 720;
 }
 
+/// Pixel widths small network photos are decoded at, so memory holds what
+/// the screen shows instead of the full 800px download.
+class ImageDecode {
+  ImageDecode._();
+
+  /// Thumbnails up to ~100dp wide.
+  static const int thumb = 300;
+
+  /// Half-screen grid and row cards (portrait-only phone layout).
+  static const int card = 600;
+}
+
 class Responsive {
   const Responsive._(
     this.size,
