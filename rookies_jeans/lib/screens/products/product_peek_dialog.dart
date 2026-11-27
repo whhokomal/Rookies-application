@@ -3,6 +3,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:rookies_jeans/utils/format.dart';
 import 'package:rookies_jeans/constants/app_ui.dart';
 import 'package:rookies_jeans/models/product_model.dart';
+import 'package:rookies_jeans/screens/products/product_detail_page.dart';
+import 'package:rookies_jeans/services/cart_service.dart';
 
 class ProductPeekDialog extends StatefulWidget {
   final ShopifyProduct product;
@@ -578,4 +580,71 @@ class _PeekOption {
   final String label;
   final List<String> values;
   const _PeekOption({required this.label, required this.values});
+}
+
+/// Home's quick-add popup: pick a size, add to cart, show a snackbar.
+void showProductQuickAdd(BuildContext context, ShopifyProduct product) {
+  showGeneralDialog(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Dismiss',
+    barrierColor: Colors.black.withValues(alpha: 0.55),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (_, _, _) => const SizedBox.shrink(),
+    transitionBuilder: (ctx, anim, _, _) {
+      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
+      return ScaleTransition(
+        scale: curved,
+        child: FadeTransition(
+          opacity: anim,
+          child: ProductPeekDialog(
+            product: product,
+            primary: AppColors.primary,
+            onPrimary: AppColors.onPrimary,
+            cardColor: AppColors.card,
+            bgColor: AppColors.bg,
+            borderColor: AppColors.border,
+            secondaryTxt: AppColors.secondaryText,
+            numberFont: AppFonts.number,
+            rupeeFont: AppFonts.rupee,
+            bodyFont: AppFonts.bold,
+            onAddToCart: (variantId) async {
+              Navigator.of(ctx).pop();
+              final success =
+                  await CartService.instance.addLine(variantId: variantId);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success
+                          ? '${product.title} added to cart'
+                          : (CartService.instance.lastError ??
+                              'Failed to add item to cart'),
+                      style: const TextStyle(fontFamily: AppFonts.accent),
+                    ),
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+            },
+            onOpenDetail: () {
+              Navigator.of(ctx).pop();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ProductDetailPage(
+                    handle: product.handle,
+                    title: product.title,
+                    heroImageUrl: product.primaryImageUrl,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    },
+  );
 }

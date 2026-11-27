@@ -16,6 +16,7 @@ import 'package:rookies_jeans/screens/collections/collections.dart';
 import 'package:rookies_jeans/screens/products/product_detail_page.dart';
 import 'package:rookies_jeans/screens/products/product_peek_dialog.dart';
 import 'package:rookies_jeans/screens/products/products.dart';
+import 'package:rookies_jeans/screens/products/swipe_page.dart';
 import 'package:rookies_jeans/screens/search/search_tab_page.dart';
 import 'package:rookies_jeans/services/cart_service.dart';
 import 'package:rookies_jeans/services/shopify_storefront_service.dart';
@@ -50,6 +51,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ShopTheLookEntry> _shopTheLookEntries = [];
   List<OccasionTileContent> _occasionTilesContent = [];
   List<FeatureBannerContent> _featureBanners = [];
+
+  /// Swipe-deck banner from Shopify; the bundled photo shows until it loads
+  /// or when none is set up.
+  FeatureBannerContent? _swipeBanner;
 
   final ScrollController _scrollController = ScrollController();
 
@@ -348,6 +353,7 @@ class _HomeScreenState extends State<HomeScreen> {
       service.getOccasionTilesContent(),
       service.getFeatureBanners(),
       service.getExploreTabs(),
+      service.getSwipeBanner(),
     ]);
     if (!mounted) return;
 
@@ -385,6 +391,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _shopTheLookEntries = results[3] as List<ShopTheLookEntry>;
       _occasionTilesContent = results[4] as List<OccasionTileContent>;
       _featureBanners = results[5] as List<FeatureBannerContent>;
+      _swipeBanner = results[7] as FeatureBannerContent?;
       _isLoading = false;
     });
     if (keptIndex < 0) _fetchExploreProducts();
@@ -1342,6 +1349,30 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Widget> _exploreCollectionsSlivers() {
     final r = R.of(context);
     return [
+      // Opens a swipe deck of the selected Explore tab's collection.
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.only(bottom: r.dp(20)),
+          child: _PromoBlockCard(
+            assetPath: 'assets/banner.jpeg',
+            imageUrls: [?_swipeBanner?.imageUrl],
+            label: (_swipeBanner?.label.isNotEmpty ?? false)
+                ? _swipeBanner!.label
+                : 'SWIPE YOUR STYLE',
+            buttonLabel: _swipeBanner?.buttonLabel ?? 'START SWIPING',
+            height: MediaQuery.sizeOf(context).width /
+                (_swipeBanner?.aspectRatio ?? 4 / 3),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SwipePage(
+                  collectionHandle: _exploreTabDefs[_exploreTabIndex].handle,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
       SliverToBoxAdapter(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

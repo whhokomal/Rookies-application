@@ -169,6 +169,7 @@ class ShopifyStorefrontService {
       getShopTheLookEntries(),
       getOccasionTilesContent(),
       getFeatureBanners(),
+      getSwipeBanner(),
       explore,
     ]);
   }
@@ -1579,6 +1580,43 @@ $_productCardFields
     } catch (e) {
       _log('getFeatureBanners EXCEPTION: $e');
       return [];
+    }
+  }
+
+  /// The Home banner that opens the swipe deck: one "swipe_banner"
+  /// metaobject (image, label, button_label). Null when none is set up.
+  Future<FeatureBannerContent?> getSwipeBanner() =>
+      _cachedFetch('swipeBanner', _fetchSwipeBanner);
+
+  Future<FeatureBannerContent?> _fetchSwipeBanner() async {
+    const String query = r'''
+      query getSwipeBanner {
+        metaobjects(type: "swipe_banner", first: 1) {
+          edges {
+            node {
+              id
+              image: field(key: "image") { reference { ... on MediaImage { image { url(transform: {maxWidth: 1440}) width height } } } }
+              label: field(key: "label") { value }
+              button_label: field(key: "button_label") { value }
+            }
+          }
+        }
+      }
+    ''';
+
+    try {
+      final res = await ShopifyGraphQL.post(query);
+      _log('getSwipeBanner → ${res.statusCode}');
+      if (res.hasErrors || res.data == null) return null;
+      final edges = (res.data!['metaobjects']?['edges'] as List?) ?? [];
+      if (edges.isEmpty) return null;
+      final banner = FeatureBannerContent.fromMetaobjectJson(
+        edges.first['node'] as Map<String, dynamic>,
+      );
+      return banner.imageUrl != null ? banner : null;
+    } catch (e) {
+      _log('getSwipeBanner EXCEPTION: $e');
+      return null;
     }
   }
 
